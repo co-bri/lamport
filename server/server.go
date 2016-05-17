@@ -1,12 +1,15 @@
 package server
 
 import (
-	"github.com/samuel/go-zookeeper/zk"
 	"log"
 	"net"
 	"os"
 	"time"
+
+	"github.com/samuel/go-zookeeper/zk"
 )
+
+var acl = zk.WorldACL(zk.PermAll)
 
 func init() {
 	log.SetOutput(os.Stdout)
@@ -14,7 +17,9 @@ func init() {
 
 func Run(ip string, host string) {
 	log.Print("Initializing lamport...")
-	connectZk()
+	ch := make(chan string)
+
+	connectZk(ch, host, ip)
 	listen(ip, host)
 }
 
@@ -37,11 +42,55 @@ func handleConnection(conn net.Conn) {
 	log.Print("Incoming connection made...")
 }
 
-func connectZk() {
-	log.Print("Connecting to Zookeper...")
-	_, _, err := zk.Connect([]string{"127.0.0.1"}, time.Second)
+func connectZk(ch chan<- string, host string, port string) {
+	conn, _, err := zk.Connect([]string{"127.0.0.1"}, time.Second)
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("Connected to Zookeper")
+	defer conn.Close()
+
+	createParentZNodes(conn)
+
+	data := []uint8(host + ":" + port)
+	path, err := conn.CreateProtectedEphemeralSequential("/lamport/nodes/", data, acl)
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("Created znode %s", path)
+
+	nodes, _, _, err := conn.ChildrenW("/lamport/nodes")
+	if err != nil {
+		panic(err)
+	}
+	log.Print(nodes)
+	// TODO - setup watch on node adjacent node
+}
+
+func createParentZNodes(conn *zk.Conn) {
+	// Check if the parent nodes exist
+	exists, _, err := conn.Exists("/lamport")
+	if err != nil {
+		panic(err)
+	}
+
+	if !exists {
+		log.Print("Creating parent znode 'lamport' in zookeeper")
+		_, err := conn.Create("/lamport", nil, 0, acl)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	exists, _, err = conn.Exists("/lamport/nodes")
+	if err != nil {
+		panic(err)
+	}
+
+	if !exists {
+		log.Print("Creating parent znode 'nodes' in zookeeper")
+		_, err := conn.Create("/lamport/nodes", nil, 0, acl)
+		if err != nil {
+			panic(err)
+		}
+	}
 }
