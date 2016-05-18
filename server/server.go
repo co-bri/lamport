@@ -1,9 +1,12 @@
+// Package server provides methods for running lamport
 package server
 
 import (
 	"log"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/samuel/go-zookeeper/zk"
@@ -15,11 +18,11 @@ func init() {
 	log.SetOutput(os.Stdout)
 }
 
+// Run starts lamport on the given ip and hostname
 func Run(ip string, host string) {
 	log.Print("Initializing lamport...")
-	ch := make(chan string)
 
-	connectZk(ch, host, ip)
+	connectZk(host, ip)
 	listen(ip, host)
 }
 
@@ -42,28 +45,53 @@ func handleConnection(conn net.Conn) {
 	log.Print("Incoming connection made...")
 }
 
-func connectZk(ch chan<- string, host string, port string) {
+func connectZk(host string, port string) {
 	conn, _, err := zk.Connect([]string{"127.0.0.1"}, time.Second)
 	if err != nil {
 		panic(err)
 	}
-	defer conn.Close()
 
 	createParentZNodes(conn)
+	node := createZNode(conn, host, port)
+	leaderWatch(conn, node)
+}
 
+func leaderWatch(conn *zk.Conn, node string) {
+	id, err := strconv.Atoi(strings.Split(node, "-")[1])
+	if err != nil {
+		panic(err)
+	}
+
+	nodes, _, _, err := conn.ChildrenW("/lamport/nodes")
+	if err != nil {
+		panic(err)
+	}
+	watchId := 0
+	for _, v := range nodes {
+		nodeId, err := strconv.Atoi(strings.Split(v, "-")[1])
+		if err != nil {
+			panic(err)
+		}
+		if (nodeId < id) && (nodeId > watchId) {
+			watchId = nodeId
+		}
+	}
+	if watchId == 0 {
+		log.Print("Running in single node cluster, leader by default")
+	} else {
+		log.Printf("Watching %s for leader changes")
+	}
+	//TODO - handle leader changes
+}
+
+func createZNode(conn *zk.Conn, host string, port string) (path string) {
 	data := []uint8(host + ":" + port)
 	path, err := conn.CreateProtectedEphemeralSequential("/lamport/nodes/", data, acl)
 	if err != nil {
 		panic(err)
 	}
 	log.Printf("Created znode %s", path)
-
-	nodes, _, _, err := conn.ChildrenW("/lamport/nodes")
-	if err != nil {
-		panic(err)
-	}
-	log.Print(nodes)
-	// TODO - setup watch on node adjacent node
+	return path
 }
 
 func createParentZNodes(conn *zk.Conn) {
