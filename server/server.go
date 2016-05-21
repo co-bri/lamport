@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -21,12 +22,30 @@ func init() {
 // Run starts lamport on the given ip and hostname
 func Run(ip string, host string) {
 	log.Print("Initializing lamport...")
+	connCh := make(chan net.Conn)
+	zkCh, zkConn := connectZk(host, ip)
+	go listen(ip, host, connCh)
 
-	connectZk(host, ip)
-	listen(ip, host)
+	for {
+		select {
+		case e := <-zkCh:
+			if e.Err != nil {
+				panic(e.Err)
+			} else {
+				var err error
+				log.Print("Zookeeper watch event", e)
+				_, _, zkCh, err = zkConn.ChildrenW("/lamport/nodes")
+				if err != nil {
+					panic(err)
+				}
+			}
+		case c := <-connCh:
+			log.Printf("Incoming connection from: %s", c.RemoteAddr())
+		}
+	}
 }
 
-func listen(ip string, host string) {
+func listen(ip string, host string, ch chan net.Conn) {
 	ln, err := net.Listen("tcp", host+":"+ip)
 	if err != nil {
 		panic(err)
@@ -37,7 +56,7 @@ func listen(ip string, host string) {
 		if err != nil {
 			panic(err)
 		}
-		go handleConnection(conn)
+		ch <- conn
 	}
 }
 
@@ -45,7 +64,7 @@ func handleConnection(conn net.Conn) {
 	log.Print("Incoming connection made...")
 }
 
-func connectZk(host string, port string) {
+func connectZk(host string, port string) (<-chan zk.Event, *zk.Conn) {
 	conn, _, err := zk.Connect([]string{"127.0.0.1"}, time.Second)
 	if err != nil {
 		panic(err)
@@ -53,35 +72,39 @@ func connectZk(host string, port string) {
 
 	createParentZNodes(conn)
 	node := createZNode(conn, host, port)
-	leaderWatch(conn, node)
+	return leaderWatch(conn, node), conn
 }
 
-func leaderWatch(conn *zk.Conn, node string) {
-	id, err := strconv.Atoi(strings.Split(node, "-")[1])
+func leaderWatch(conn *zk.Conn, nodeId string) <-chan zk.Event {
+	id := getNodeId(nodeId)
+	watchId := id
+
+	nodes, _, ch, err := conn.ChildrenW("/lamport/nodes")
 	if err != nil {
 		panic(err)
 	}
 
-	nodes, _, _, err := conn.ChildrenW("/lamport/nodes")
-	if err != nil {
-		panic(err)
+	seq := make([]int, len(nodes))
+	for i, v := range nodes {
+		nodeId := getNodeId(v)
+		seq[i] = nodeId
 	}
-	watchId := 0
-	for _, v := range nodes {
-		nodeId, err := strconv.Atoi(strings.Split(v, "-")[1])
-		if err != nil {
-			panic(err)
-		}
-		if (nodeId < id) && (nodeId > watchId) {
-			watchId = nodeId
+	sort.Ints(seq)
+	log.Printf("Current leader is sequence number: %d", seq[0])
+
+	for _, v := range seq {
+		if v >= id {
+			break
+		} else if v < watchId {
+			watchId = v
 		}
 	}
-	if watchId == 0 {
-		log.Print("Running in single node cluster, leader by default")
+	if watchId == id {
+		log.Printf("Entering leader mode")
 	} else {
-		log.Printf("Watching %s for leader changes")
+		log.Printf("Entering follower mode, watching id: %d for changes", watchId)
 	}
-	//TODO - handle leader changes
+	return ch
 }
 
 func createZNode(conn *zk.Conn, host string, port string) (path string) {
@@ -95,7 +118,6 @@ func createZNode(conn *zk.Conn, host string, port string) (path string) {
 }
 
 func createParentZNodes(conn *zk.Conn) {
-	// Check if the parent nodes exist
 	exists, _, err := conn.Exists("/lamport")
 	if err != nil {
 		panic(err)
@@ -121,4 +143,12 @@ func createParentZNodes(conn *zk.Conn) {
 			panic(err)
 		}
 	}
+}
+
+func getNodeId(nodeId string) (id int) {
+	id, err := strconv.Atoi(strings.Split(nodeId, "-")[1])
+	if err != nil {
+		panic(err)
+	}
+	return id
 }
