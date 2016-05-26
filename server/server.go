@@ -13,6 +13,11 @@ import (
 	"github.com/samuel/go-zookeeper/zk"
 )
 
+const (
+	zkRoot  = "/lamport"
+	zkNodes = zkRoot + "/nodes"
+)
+
 var acl = zk.WorldACL(zk.PermAll)
 
 func init() {
@@ -34,7 +39,7 @@ func Run(ip string, host string) {
 			} else {
 				var err error
 				log.Print("Zookeeper watch event", e)
-				_, _, zkCh, err = zkConn.ChildrenW("/lamport/nodes")
+				_, _, zkCh, err = zkConn.ChildrenW(zkNodes)
 				if err != nil {
 					panic(err)
 				}
@@ -79,7 +84,7 @@ func leaderWatch(conn *zk.Conn, nodeId string) <-chan zk.Event {
 	id := getNodeId(nodeId)
 	watchId := id
 
-	nodes, _, ch, err := conn.ChildrenW("/lamport/nodes")
+	nodes, _, ch, err := conn.ChildrenW(zkNodes)
 	if err != nil {
 		panic(err)
 	}
@@ -109,7 +114,7 @@ func leaderWatch(conn *zk.Conn, nodeId string) <-chan zk.Event {
 
 func createZNode(conn *zk.Conn, host string, port string) (path string) {
 	data := []uint8(host + ":" + port)
-	path, err := conn.CreateProtectedEphemeralSequential("/lamport/nodes/", data, acl)
+	path, err := conn.CreateProtectedEphemeralSequential(zkNodes+"/", data, acl)
 	if err != nil {
 		panic(err)
 	}
@@ -118,27 +123,27 @@ func createZNode(conn *zk.Conn, host string, port string) (path string) {
 }
 
 func createParentZNodes(conn *zk.Conn) {
-	exists, _, err := conn.Exists("/lamport")
+	exists, _, err := conn.Exists(zkRoot)
 	if err != nil {
 		panic(err)
 	}
 
 	if !exists {
 		log.Print("Creating parent znode 'lamport' in zookeeper")
-		_, err := conn.Create("/lamport", nil, 0, acl)
+		_, err := conn.Create(zkRoot, nil, 0, acl)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	exists, _, err = conn.Exists("/lamport/nodes")
+	exists, _, err = conn.Exists(zkNodes)
 	if err != nil {
 		panic(err)
 	}
 
 	if !exists {
 		log.Print("Creating parent znode 'nodes' in zookeeper")
-		_, err := conn.Create("/lamport/nodes", nil, 0, acl)
+		_, err := conn.Create(zkNodes, nil, 0, acl)
 		if err != nil {
 			panic(err)
 		}
