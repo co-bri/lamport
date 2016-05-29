@@ -14,7 +14,7 @@ func init() {
 }
 
 // Run starts lamport on the given ip and hostname
-func Run(ip string, host string) {
+func Run(ip string, host string, r *RaftNode) {
 	log.Print("Initializing lamport...")
 	connCh := make(chan net.Conn)
 	go listen(ip, host, connCh)
