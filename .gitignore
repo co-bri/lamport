@@ -1,1 +1,3 @@
 lamport
+.*
+!/.gitignore
