@@ -45,7 +45,7 @@ func (r *RaftNode) init(ip, host, raftDir string) error {
 	log.Printf("Setting raft directory to " + r.raftDir)
 
 	r.raftAddr = net.JoinHostPort(host, ip)
-	log.Printf("Setting raft address to " + r.raftAddr)
+	log.Printf("Raft protocol listening on " + r.raftAddr)
 
 	config := raft.DefaultConfig()
 	config.EnableSingleNode = true
@@ -82,4 +82,8 @@ func (r *RaftNode) init(ip, host, raftDir string) error {
 	r.raft = raft
 
 	return nil
+}
+
+func (r *RaftNode) State() string {
+	return r.raft.State().String()
 }
