@@ -29,10 +29,10 @@ type RaftNode struct {
 	raftDir  string
 }
 
-func NewRaftNode(ip, port, raftDir string) (*RaftNode, error) {
+func NewRaftNode(host, port, raftDir string) (*RaftNode, error) {
 	r := &RaftNode{}
 
-	err := r.init(ip, port, raftDir)
+	err := r.init(host, port, raftDir)
 	if err != nil {
 		return nil, err
 	}
@@ -40,11 +40,11 @@ func NewRaftNode(ip, port, raftDir string) (*RaftNode, error) {
 	return r, nil
 }
 
-func (r *RaftNode) init(ip, host, raftDir string) error {
+func (r *RaftNode) init(host, port, raftDir string) error {
 	r.raftDir = raftDir
 	log.Printf("Setting raft directory to " + r.raftDir)
 
-	r.raftAddr = net.JoinHostPort(host, ip)
+	r.raftAddr = net.JoinHostPort(host, port)
 	log.Printf("Raft protocol listening on " + r.raftAddr)
 
 	config := raft.DefaultConfig()

@@ -9,15 +9,19 @@ import (
 	"strings"
 )
 
+type Raft interface {
+	State() string
+}
+
 func init() {
 	log.SetOutput(os.Stdout)
 }
 
 // Run starts lamport on the given ip and hostname
-func Run(ip string, host string, r *RaftNode) {
+func Run(host string, port string, r Raft) {
 	log.Print("Initializing lamport...")
 	connCh := make(chan net.Conn)
-	go listen(ip, host, connCh)
+	go listen(host, port, connCh)
 
 	for {
 		select {
@@ -27,12 +31,12 @@ func Run(ip string, host string, r *RaftNode) {
 	}
 }
 
-func listen(ip string, host string, ch chan net.Conn) {
-	ln, err := net.Listen("tcp", host+":"+ip)
+func listen(host string, port string, ch chan net.Conn) {
+	ln, err := net.Listen("tcp", host+":"+port)
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("Lamport listening on " + host + ":" + ip)
+	log.Printf("Lamport listening on " + host + ":" + port)
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
