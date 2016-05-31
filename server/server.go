@@ -24,12 +24,12 @@ func init() {
 	log.SetOutput(os.Stdout)
 }
 
-// Run starts lamport on the given ip and hostname
-func Run(ip string, host string) {
+// Run starts lamport on the given ip and port
+func Run(ip string, port string) {
 	log.Print("Initializing lamport...")
-	connCh := make(chan net.Conn)
-	zkCh, zkConn := connectZk(host, ip)
-	go listen(ip, host, connCh)
+	zkCh, zkConn := connectZk(ip, port)
+	connCh := make(chan bool)
+	go listen(ip, port, connCh)
 
 	for {
 		select {
@@ -44,29 +44,26 @@ func Run(ip string, host string) {
 					panic(err)
 				}
 			}
-		case c := <-connCh:
-			log.Printf("Incoming connection from: %s", c.RemoteAddr())
+		case <-connCh:
+			log.Print("Local TCP socket established")
 		}
 	}
 }
 
-func listen(ip string, host string, ch chan net.Conn) {
-	ln, err := net.Listen("tcp", host+":"+ip)
+func listen(ip string, port string, ch chan bool) {
+	ln, err := net.Listen("tcp", ip+":"+port)
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("Lamport listening on " + host + ":" + ip)
+	log.Printf("Lamport listening on " + ip + ":" + port)
+	ch <- true
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			panic(err)
 		}
-		ch <- conn
+		conn.Write([]byte("OK"))
 	}
-}
-
-func handleConnection(conn net.Conn) {
-	log.Print("Incoming connection made...")
 }
 
 func connectZk(host string, port string) (<-chan zk.Event, *zk.Conn) {

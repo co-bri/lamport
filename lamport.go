@@ -6,9 +6,9 @@ import (
 )
 
 func main() {
-	ip := flag.String("port", "5936", "The port on which lamport will listen for incoming connections")
-	host := flag.String("host", "127.0.0.1", "The host ip on which lamport will run")
+	port := flag.String("port", "5936", "The port on which lamport will listen for incoming connections")
+	ip := flag.String("host", "127.0.0.1", "The host ip on which lamport will run")
 
 	flag.Parse()
-	server.Run(*ip, *host)
+	server.Run(*ip, *port)
 }
