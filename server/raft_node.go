@@ -23,12 +23,17 @@ func init() {
 	log.SetOutput(os.Stdout)
 }
 
+// A struct that wraps the raft struct, along with fields
+// for storage and communication.
 type RaftNode struct {
 	raft     *raft.Raft
-	raftAddr string
+	RaftAddr string
 	raftDir  string
 }
 
+// Create a new Raft node that can be reached and communicates on
+// a given host and port. Also takes in a raft directory to
+// use for various raft storage functions.
 func NewRaftNode(host, port, raftDir string) (*RaftNode, error) {
 	r := &RaftNode{}
 
@@ -44,20 +49,19 @@ func (r *RaftNode) init(host, port, raftDir string) error {
 	r.raftDir = raftDir
 	log.Printf("Setting raft directory to " + r.raftDir)
 
-	r.raftAddr = net.JoinHostPort(host, port)
-	log.Printf("Raft protocol listening on " + r.raftAddr)
+	r.RaftAddr = net.JoinHostPort(host, port)
+	log.Printf("Raft protocol listening on " + r.RaftAddr)
 
 	config := raft.DefaultConfig()
 	config.EnableSingleNode = true
-	config.DisableBootstrapAfterElect = false
 
-	addr, err := net.ResolveTCPAddr("tcp", r.raftAddr)
+	addr, err := net.ResolveTCPAddr("tcp", r.RaftAddr)
 	if err != nil {
 		return fmt.Errorf("Error resolving tcp address: %s", err)
 	}
 
 	transport, err :=
-		raft.NewTCPTransport(r.raftAddr, addr, maxTcpPoolSize, tcpTimeout, os.Stderr)
+		raft.NewTCPTransport(r.RaftAddr, addr, maxTcpPoolSize, tcpTimeout, os.Stderr)
 	if err != nil {
 		return fmt.Errorf("Error creating raft TCP transport: %s", err)
 	}
@@ -84,6 +88,37 @@ func (r *RaftNode) init(host, port, raftDir string) error {
 	return nil
 }
 
+// Attempts to add another Raft node to the cluster by passing in its
+// address. Will fail if not run on the leader.
+func (r *RaftNode) Join(addr string) error {
+	log.Printf("Attempting to add %s to the cluster...", addr)
+
+	if future := r.raft.AddPeer(addr); future.Error() != nil {
+		return fmt.Errorf("Error adding %s to the cluster: %s", addr, future.Error())
+	}
+
+	log.Printf("Successfully added %s to the cluster!", addr)
+
+	return nil
+}
+
+// Shuts down the raft cluster. A blocking operation.
+func (r *RaftNode) Shutdown() error {
+	future := r.raft.Shutdown()
+	if future.Error() != nil {
+		return future.Error()
+	} else {
+		return nil
+	}
+}
+
+// Returns the state of the Raft node, which is one of Candidate,
+// Leader, Follower, or Shutdown.
 func (r *RaftNode) State() string {
 	return r.raft.State().String()
+}
+
+// Returns the map of various internal raft stats.
+func (r *RaftNode) Stats() map[string]string {
+	return r.raft.Stats()
 }

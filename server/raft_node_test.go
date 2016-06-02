@@ -1,6 +1,9 @@
 package server_test
 
 import (
+	"log"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -14,15 +17,122 @@ const (
 )
 
 func TestSingleNodeCluster(t *testing.T) {
-	raftNode, err := server.NewRaftNode(port, localhost, raftDir)
+	raftNode, err := server.NewRaftNode(localhost, port, raftDir)
 	if err != nil {
 		t.Error(err)
 	}
 
 	// give cluster time to elect a leader
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	if state := raftNode.State(); state != "Leader" {
 		t.Errorf("Expected state - Leader, Actual state - %s", state)
 	}
+
+	shutdownRaftNode(raftNode, t)
+	deleteDir(raftDir, t)
+}
+
+func TestThreeNodeCluster(t *testing.T) {
+	portNum, err := strconv.Atoi(port)
+	if err != nil {
+		t.Error(err)
+	}
+
+	raftNode1, err := server.NewRaftNode(localhost, strconv.Itoa(portNum+1), raftDir+"1")
+	if err != nil {
+		t.Error(err)
+	}
+
+	raftNode2, err := server.NewRaftNode(localhost, strconv.Itoa(portNum+2), raftDir+"2")
+	if err != nil {
+		t.Error(err)
+	}
+
+	// wait for a leader
+	time.Sleep(3 * time.Second)
+
+	if raftNode2.State() == "Leader" {
+		err = raftNode2.Join(raftNode1.RaftAddr)
+		if err != nil {
+			t.Error(err)
+		}
+	} else if raftNode1.State() == "Leader" {
+		err = raftNode1.Join(raftNode2.RaftAddr)
+		if err != nil {
+			t.Error(err)
+		}
+	} else {
+		t.Errorf("No leader in cluster 5 seconds after node 1 + 2 creation. Node 1 state: %s, Node 2 state: %s", raftNode1.State(), raftNode2.State())
+	}
+
+	// wait for a leader
+	time.Sleep(3 * time.Second)
+
+	raftNode3, err := server.NewRaftNode(localhost, strconv.Itoa(portNum+3), raftDir+"3")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if raftNode1.State() == "Leader" {
+		err = raftNode1.Join(raftNode3.RaftAddr)
+		if err != nil {
+			t.Error(err)
+		}
+	} else if raftNode2.State() == "Leader" {
+		err = raftNode2.Join(raftNode3.RaftAddr)
+		if err != nil {
+			t.Error(err)
+		}
+	} else {
+		t.Error("No leader in cluster 5 seconds after node 2 joined node 1.")
+	}
+
+	// wait for a leader again
+	time.Sleep(3 * time.Second)
+
+	clusterHasLeader := raftNode1.State() == "Leader" || raftNode2.State() == "Leader" ||
+		raftNode3.State() == "Leader"
+
+	if !clusterHasLeader {
+		t.Error("No leader in cluster 5 seconds after node 3 joined non leader node")
+	}
+
+	nodesHaveThreePeers := getPeersCount(raftNode1.Stats()) == 2 &&
+		getPeersCount(raftNode2.Stats()) == 2 &&
+		getPeersCount(raftNode3.Stats()) == 2
+
+	if !nodesHaveThreePeers {
+		t.Error("All nodes do not have three peers")
+	}
+
+	shutdownRaftNode(raftNode1, t)
+	shutdownRaftNode(raftNode2, t)
+	shutdownRaftNode(raftNode3, t)
+	deleteDir(raftDir+"1", t)
+	deleteDir(raftDir+"2", t)
+	deleteDir(raftDir+"3", t)
+}
+
+func deleteDir(dir string, t *testing.T) {
+	err := os.RemoveAll(dir)
+	if err != nil {
+		t.Logf("Couldn't delete directory %s - %s", dir, err)
+	}
+}
+
+func shutdownRaftNode(r *server.RaftNode, t *testing.T) {
+	t.Logf("Shutting down raft node %s", r.RaftAddr)
+
+	err := r.Shutdown()
+	if err != nil {
+		t.Errorf("Error shutting down raft node: %s", err)
+	}
+}
+
+func getPeersCount(stats map[string]string) int {
+	log.Printf("STATS: %s", stats)
+	peersCount, _ := strconv.Atoi(stats["num_peers"])
+	log.Printf("PEERS COUNT: %d", peersCount)
+	return peersCount
 }
