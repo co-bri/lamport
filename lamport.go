@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+
 	"github.com/Distributed-Computing-Denver/lamport/server"
 )
 
