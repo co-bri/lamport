@@ -104,7 +104,7 @@ func createParentZNodes(conn *zk.Conn) {
 	}
 
 	if !exists {
-		log.Printf("Root znode not found, creating %s' in zookeeper", zkRoot)
+		log.Printf("Root znode not found, creating %s in zookeeper", zkRoot)
 		if _, err := conn.Create(zkRoot, nil, 0, acl); err != nil {
 			panic(err)
 		}
@@ -116,7 +116,7 @@ func createParentZNodes(conn *zk.Conn) {
 	}
 
 	if !exists {
-		log.Print("Leader election parent nnode not found, Creating %s in zookeeper", zkNodes)
+		log.Printf("Leader election parent node not found, Creating %s in zookeeper", zkNodes)
 		if _, err := conn.Create(zkNodes, nil, 0, acl); err != nil {
 			panic(err)
 		}
