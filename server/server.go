@@ -39,13 +39,13 @@ func Run(ip string, port string) {
 
 	for {
 		if e := <-ch; e.Err != nil {
-			panic(e.Err)
+			log.Fatal(e.Err)
 		} else {
 			var err error
-			log.Print("Zookeeper watch event: ", e)
+			log.Printf("Zookeeper watch event: %v", e)
 			_, _, ch, err = conn.ChildrenW(zkNodes)
 			if err != nil {
-				panic(err)
+				log.Fatal(err)
 			}
 		}
 	}

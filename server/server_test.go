@@ -42,7 +42,7 @@ func TestWatchCandidateNode(t *testing.T) {
 		t.Fatalf("Expected a Path of %s, but found %s", zkNodes, e.Path)
 	}
 	if err := cleanZk(conn); err != nil {
-		t.Fatal("Error cleaning up zk nodes %s", err)
+		t.Fatalf("Error cleaning up zk nodes %s", err)
 	}
 }
 
@@ -64,7 +64,7 @@ func TestCreateCandidateZNode(t *testing.T) {
 		t.Fatalf("Error deleting zk root node %s: %s", pth, err)
 	}
 	if err := cleanZk(conn); err != nil {
-		t.Fatal("Error cleaning up zk nodes %s", err)
+		t.Fatalf("Error cleaning up zk nodes %s", err)
 	}
 }
 
@@ -87,7 +87,7 @@ func TestCreateParentZNodes(t *testing.T) {
 	}
 
 	if err := cleanZk(conn); err != nil {
-		t.Fatal("Error cleaning up zk nodes %s", err)
+		t.Fatalf("Error cleaning up zk nodes %s", err)
 	}
 }
 
