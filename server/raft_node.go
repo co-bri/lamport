@@ -102,6 +102,11 @@ func (r *RaftNode) Join(addr string) error {
 	return nil
 }
 
+// Gets the leader of the cluster
+func (r *RaftNode) Leader() string {
+	return r.raft.Leader()
+}
+
 // Shuts down the raft cluster. A blocking operation.
 func (r *RaftNode) Shutdown() error {
 	future := r.raft.Shutdown()

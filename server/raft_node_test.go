@@ -29,6 +29,10 @@ func TestSingleNodeCluster(t *testing.T) {
 		t.Errorf("Expected state - Leader, Actual state - %s", state)
 	}
 
+	if raftNode.Leader() != localhost+":"+port {
+		t.Errorf("Expected leader - %s, Actual leader - %s", localhost+":"+port, raftNode.Leader())
+	}
+
 	shutdownRaftNode(raftNode, t)
 	deleteDir(raftDir, t)
 }
