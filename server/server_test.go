@@ -91,25 +91,6 @@ func TestCreateParentZNodes(t *testing.T) {
 	}
 }
 
-func TestNodeSeq(t *testing.T) {
-	s := "_c_4f4bfdb5805df1a619e1c8e8b26d86e6-0000000002"
-	seq := getNodeSeq(s)
-
-	// happy path
-	if seq != 2 {
-		t.Fatalf("Expected seq 2 for node id %s ", s)
-	}
-
-	// test for panic with bad node id
-	s = "ABCDEFGHIJK"
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatalf("Expected panic for seq for node id %s", s)
-		}
-	}()
-	getNodeSeq(s)
-}
-
 func startZk() (*zk.Conn, error) {
 	if _, err := exec.LookPath(zkSrvr); err != nil {
 		return nil, err

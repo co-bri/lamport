@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 const (
 	zkRoot  = "/lamport"
 	zkNodes = zkRoot + "/nodes"
+	zkCand  = "cand"
 )
 
 var acl = zk.WorldACL(zk.PermAll)
@@ -35,7 +35,7 @@ func Run(ip string, port string) {
 
 	createParentZNodes(conn)
 	zn := createCandidateZNode(conn, ip, port)
-	ch := watchCandidateNode(conn, zn)
+	ch := watchCandidateNode(conn, strings.Split(zn, "/")[3])
 
 	for {
 		if e := <-ch; e.Err != nil {
@@ -52,34 +52,28 @@ func Run(ip string, port string) {
 
 // sets a watch on the candidate node having seq number prior to supplied node id
 func watchCandidateNode(conn *zk.Conn, nodeID string) <-chan zk.Event {
-	crseq := getNodeSeq(nodeID)
-	wchseq := crseq
+	wchID := nodeID
 
 	nds, _, ch, err := conn.ChildrenW(zkNodes)
 	if err != nil {
 		panic(err)
 	}
 
-	seqs := make([]int, len(nds))
-	for i, v := range nds {
-		seqs[i] = getNodeSeq(v)
-	}
+	sort.Strings(nds)
+	log.Printf("Current leader id: %s", nds[0])
 
-	sort.Ints(seqs)
-	log.Printf("Current leader is sequence number: %d", seqs[0])
-
-	for _, seq := range seqs {
-		if seq >= crseq {
+	for _, id := range nds {
+		if id >= nodeID {
 			break
-		} else if seq < wchseq {
-			wchseq = seq
+		} else if id < wchID {
+			wchID = id
 		}
 	}
 
-	if wchseq == crseq {
+	if wchID == nodeID {
 		log.Printf("Entering leader mode")
 	} else {
-		log.Printf("Entering follower mode, watching candidate node: %d for changes", wchseq)
+		log.Printf("Entering follower mode, watching candidate node: %s for changes", wchID)
 	}
 	return ch
 }
@@ -87,7 +81,7 @@ func watchCandidateNode(conn *zk.Conn, nodeID string) <-chan zk.Event {
 // creates a candidate znode for this lamport instance
 func createCandidateZNode(conn *zk.Conn, host string, port string) (path string) {
 	data := []uint8(host + ":" + port)
-	path, err := conn.CreateProtectedEphemeralSequential(zkNodes+"/", data, acl)
+	path, err := conn.Create(zkNodes+"/"+zkCand, data, zk.FlagEphemeral|zk.FlagSequence, acl)
 	if err != nil {
 		panic(err)
 	}
@@ -120,13 +114,4 @@ func createParentZNodes(conn *zk.Conn) {
 			panic(err)
 		}
 	}
-}
-
-// retrieves the zk sequence counter from supplied node id
-func getNodeSeq(nodeID string) (id int) {
-	id, err := strconv.Atoi(strings.Split(nodeID, "-")[1])
-	if err != nil {
-		panic(err)
-	}
-	return id
 }
