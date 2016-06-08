@@ -41,7 +41,6 @@ func Run(ip string, port string) {
 		if e := <-ch; e.Err != nil {
 			log.Fatal(e.Err)
 		} else {
-			var err error
 			log.Printf("Zookeeper watch event: %v", e)
 			_, _, ch, err = conn.ChildrenW(zkNodes)
 			if err != nil {
