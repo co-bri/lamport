@@ -1,7 +1,6 @@
 package server_test
 
 import (
-	"log"
 	"os"
 	"strconv"
 	"testing"
@@ -16,6 +15,7 @@ const (
 	raftDir   = ".testRaftDir"
 )
 
+// Create a single node and verify that it becomes leader
 func TestSingleNodeCluster(t *testing.T) {
 	raftNode, err := server.NewRaftNode(localhost, port, raftDir)
 	if err != nil {
@@ -33,6 +33,9 @@ func TestSingleNodeCluster(t *testing.T) {
 	deleteDir(raftDir, t)
 }
 
+// Create three nodes and join them together to form a cluster.
+// Each node should have 2 peers and the cluster should have a
+// leader.
 func TestThreeNodeCluster(t *testing.T) {
 	portNum, err := strconv.Atoi(port)
 	if err != nil {
@@ -131,8 +134,6 @@ func shutdownRaftNode(r *server.RaftNode, t *testing.T) {
 }
 
 func getPeersCount(stats map[string]string) int {
-	log.Printf("STATS: %s", stats)
 	peersCount, _ := strconv.Atoi(stats["num_peers"])
-	log.Printf("PEERS COUNT: %d", peersCount)
 	return peersCount
 }
