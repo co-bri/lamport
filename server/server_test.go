@@ -24,9 +24,9 @@ func TestWatchCandidateNode(t *testing.T) {
 		conn.Close()
 		stopZk()
 	}()
-	createParentZNodes(conn)                             // Need to make sure lamport zk nodes are present
-	pth := createCandidateZNode(conn, "0.0.0.0", "1234") // Need to create candidate node
-	ch := watchCandidateNode(conn, pth)
+	createParentZNodes(conn)                    // Need to make sure lamport zk nodes are present
+	pth := createZNode(conn, "0.0.0.0", "1234") // Need to create candidate node
+	ch := watchNode(conn, pth)
 
 	// delete the candidate node to generate an event on the channel
 	if err := conn.Delete(pth, 0); err != nil {
@@ -56,7 +56,7 @@ func TestCreateCandidateZNode(t *testing.T) {
 		stopZk()
 	}()
 	createParentZNodes(conn) // Need to make sure lamport zk nodes are present
-	pth := createCandidateZNode(conn, "0.0.0.0", "1234")
+	pth := createZNode(conn, "0.0.0.0", "1234")
 	if exists, _, err := conn.Exists(pth); err != nil || !exists {
 		t.Fatalf("Failed to create candidate node %s", pth)
 	}

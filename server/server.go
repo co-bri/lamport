@@ -14,7 +14,7 @@ import (
 const (
 	zkRoot  = "/lamport"
 	zkNodes = zkRoot + "/nodes"
-	zkCand  = "cand"
+	zkPrfx  = "node"
 )
 
 var acl = zk.WorldACL(zk.PermAll)
@@ -27,22 +27,25 @@ func init() {
 func Run(ip string, port string) {
 	log.Print("Starting lamport...")
 
-	log.Print("Connecting to Zookeeper on 127.0.0.1") // TODO make ZK host/port configurable
-	conn, _, err := zk.Connect([]string{"127.0.0.1"}, time.Second)
+	zkConn, sCh, err := zk.Connect([]string{"127.0.0.1"}, time.Second)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Error connecting to zookeeper: %s", err)
 	}
 
-	createParentZNodes(conn)
-	zn := createCandidateZNode(conn, ip, port)
-	ch := watchCandidateNode(conn, strings.Split(zn, "/")[3])
+	// setup required znodes, set watch for leader election
+	createParentZNodes(zkConn)
+	zn := createZNode(zkConn, ip, port)
+	wCh := watchNode(zkConn, strings.Split(zn, "/")[3])
 
 	for {
-		if e := <-ch; e.Err != nil {
-			log.Fatal(e.Err)
-		} else {
-			log.Printf("Zookeeper watch event: %v", e)
-			_, _, ch, err = conn.ChildrenW(zkNodes)
+		select {
+		case se := <-sCh:
+			if se.State == zk.StateUnknown || se.State == zk.StateDisconnected {
+				log.Printf("Zookeeper %s, state: %s, server: %s ", se.Type, se.State, se.Server)
+			}
+		case we := <-wCh:
+			log.Printf("Zookeeper watch event: %s", we)
+			_, _, wCh, err = zkConn.ChildrenW(zkNodes)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -51,7 +54,7 @@ func Run(ip string, port string) {
 }
 
 // sets a watch on the candidate node having seq number prior to supplied node id
-func watchCandidateNode(conn *zk.Conn, nodeID string) <-chan zk.Event {
+func watchNode(conn *zk.Conn, nodeID string) <-chan zk.Event {
 	wchID := nodeID
 
 	nds, _, ch, err := conn.ChildrenW(zkNodes)
@@ -79,9 +82,9 @@ func watchCandidateNode(conn *zk.Conn, nodeID string) <-chan zk.Event {
 }
 
 // creates a candidate znode for this lamport instance
-func createCandidateZNode(conn *zk.Conn, host string, port string) (path string) {
+func createZNode(conn *zk.Conn, host string, port string) (path string) {
 	data := []uint8(host + ":" + port)
-	path, err := conn.Create(zkNodes+"/"+zkCand, data, zk.FlagEphemeral|zk.FlagSequence, acl)
+	path, err := conn.Create(zkNodes+"/"+zkPrfx, data, zk.FlagEphemeral|zk.FlagSequence, acl)
 	if err != nil {
 		panic(err)
 	}
@@ -89,7 +92,7 @@ func createCandidateZNode(conn *zk.Conn, host string, port string) (path string)
 	return path
 }
 
-// creates the required zknodes if not present
+// creates the required parent znodes if not present
 func createParentZNodes(conn *zk.Conn) {
 	exists, _, err := conn.Exists(zkRoot)
 	if err != nil {
