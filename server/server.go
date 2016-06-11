@@ -3,6 +3,7 @@ package server
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -11,7 +12,9 @@ import (
 
 type Raft interface {
 	Join(addr string) error
+	LamportAddr() string
 	Leader() string
+	LeaderAddr() string
 	State() string
 }
 
@@ -56,5 +59,23 @@ func handleMessage(conn net.Conn, r Raft) {
 		log.Printf("Error reading message: %s", err)
 	}
 	node := strings.TrimSpace(msg)
-	r.Join(node)
+	if r.State() == "Leader" {
+		r.Join(node)
+	} else {
+		if r.LeaderAddr() != r.LamportAddr() {
+			writeMessage(msg, r.LeaderAddr())
+		} else {
+			log.Printf("Can't add %s to the cluster as this Raft node doesn't know the correct leader address", node)
+		}
+	}
+	conn.Close()
+}
+
+func writeMessage(message, server string) {
+	conn, err := net.Dial("tcp", server)
+	if err != nil {
+		log.Printf("Error connecting to %s: %s", server, err)
+	}
+	fmt.Fprintf(conn, message)
+	conn.Close()
 }

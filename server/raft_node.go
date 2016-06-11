@@ -1,11 +1,14 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -23,21 +26,35 @@ func init() {
 	log.SetOutput(os.Stdout)
 }
 
+type fsm RaftNode
+
+type fsmSnapshot struct {
+	leaderAddr string
+}
+
+type command struct {
+	Val string
+}
+
 // A struct that wraps the raft struct, along with fields
 // for storage and communication.
 type RaftNode struct {
-	raft     *raft.Raft
-	RaftAddr string
-	raftDir  string
+	raft        *raft.Raft
+	RaftAddr    string
+	raftDir     string
+	lamportAddr string
+
+	leaderAddr string
+	mu         sync.Mutex
 }
 
 // Create a new Raft node that can be reached and communicates on
 // a given host and port. Also takes in a raft directory to
 // use for various raft storage functions.
-func NewRaftNode(host, port, raftDir string) (*RaftNode, error) {
+func NewRaftNode(host, port, lamportPort, raftDir string) (*RaftNode, error) {
 	r := &RaftNode{}
 
-	err := r.init(host, port, raftDir)
+	err := r.init(host, port, lamportPort, raftDir)
 	if err != nil {
 		return nil, err
 	}
@@ -45,12 +62,14 @@ func NewRaftNode(host, port, raftDir string) (*RaftNode, error) {
 	return r, nil
 }
 
-func (r *RaftNode) init(host, port, raftDir string) error {
+func (r *RaftNode) init(host, port, lamportPort, raftDir string) error {
 	r.raftDir = raftDir
 	log.Printf("Setting raft directory to " + r.raftDir)
 
 	r.RaftAddr = net.JoinHostPort(host, port)
 	log.Printf("Raft protocol listening on " + r.RaftAddr)
+
+	r.lamportAddr = net.JoinHostPort(host, lamportPort)
 
 	config := raft.DefaultConfig()
 	config.EnableSingleNode = true
@@ -79,14 +98,91 @@ func (r *RaftNode) init(host, port, raftDir string) error {
 	}
 
 	raft, err :=
-		raft.NewRaft(config, nil, boltStore, boltStore, snapshots, peerStore, transport)
+		raft.NewRaft(config, (*fsm)(r), boltStore, boltStore, snapshots, peerStore, transport)
 	if err != nil {
 		return fmt.Errorf("Error creating raft struct: %s", err)
 	}
 	r.raft = raft
 
+	go r.updateFsm()
+
 	return nil
 }
+
+func (r *RaftNode) updateFsm() {
+	ch := r.raft.LeaderCh()
+	for {
+		isLeader := <-ch
+		if isLeader {
+			r.Set(r.lamportAddr)
+		}
+	}
+}
+
+func (f *fsm) Apply(l *raft.Log) interface{} {
+	var c command
+
+	if err := json.Unmarshal(l.Data, &c); err != nil {
+		log.Printf("Couldn't unmarshal command - %s", err)
+	}
+
+	return f.apply(c.Val)
+}
+
+func (f *fsm) Restore(rc io.ReadCloser) error {
+	var str string
+	if err := json.NewDecoder(rc).Decode(&str); err != nil {
+		return err
+	}
+	f.leaderAddr = str
+
+	return nil
+}
+
+func (f *fsm) Snapshot() (raft.FSMSnapshot, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return &fsmSnapshot{leaderAddr: f.leaderAddr}, nil
+}
+
+func (f *fsm) apply(value string) interface{} {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	log.Printf("Setting leader address to %s", value)
+	f.leaderAddr = value
+	return nil
+}
+
+func (f *fsmSnapshot) Persist(sink raft.SnapshotSink) error {
+	err := func() error {
+		// Encode data.
+		b, err := json.Marshal(f.leaderAddr)
+		if err != nil {
+			return err
+		}
+
+		// Write data to sink.
+		if _, err := sink.Write(b); err != nil {
+			return err
+		}
+
+		// Close the sink.
+		if err := sink.Close(); err != nil {
+			return err
+		}
+
+		return nil
+	}()
+
+	if err != nil {
+		sink.Cancel()
+		return err
+	}
+
+	return nil
+}
+
+func (f *fsmSnapshot) Release() {}
 
 // Attempts to add another Raft node to the cluster by passing in its
 // address. Will fail if not run on the leader.
@@ -99,12 +195,23 @@ func (r *RaftNode) Join(addr string) error {
 
 	log.Printf("Successfully added %s to the cluster!", addr)
 
-	return nil
+	err := r.Set(r.LeaderAddr())
+
+	return err
 }
 
 // Gets the leader of the cluster
 func (r *RaftNode) Leader() string {
 	return r.raft.Leader()
+}
+
+func (r *RaftNode) LamportAddr() string {
+	return r.lamportAddr
+}
+
+// Gets the lamport address of the leader
+func (r *RaftNode) LeaderAddr() string {
+	return r.leaderAddr
 }
 
 // Shuts down the raft cluster. A blocking operation.
@@ -115,6 +222,27 @@ func (r *RaftNode) Shutdown() error {
 	} else {
 		return nil
 	}
+}
+
+func (r *RaftNode) Set(leaderAddr string) error {
+	if r.State() != "Leader" {
+		return fmt.Errorf("Can't set value on non-leader node")
+	}
+
+	c := &command{Val: leaderAddr}
+	log.Printf(c.Val)
+
+	bytes, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+
+	future := r.raft.Apply(bytes, tcpTimeout)
+	if err := future.Error(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Returns the state of the Raft node, which is one of Candidate,
