@@ -17,10 +17,13 @@ func main() {
 		panic(fmt.Errorf("Error reading config file: %s", err))
 	}
 
-	raftNode, err := server.NewRaftNode(config.Host, config.RaftPort, config.JoinPort, config.RaftDir)
-	if err != nil {
-		panic(fmt.Errorf("Error creating raft node: %s", err))
+	if config.ElectionLibrary == "Raft" {
+		raftNode, err := server.NewRaftNode(config.Host, config.RaftPort, config.JoinPort, config.RaftDir)
+		if err != nil {
+			panic(fmt.Errorf("Error creating raft node: %s", err))
+		}
+		server.RunRaftServer(config.Host, config.JoinPort, raftNode, *joinServer)
+	} else if config.ElectionLibrary == "Zookeeper" {
+		server.RunZkServer(config.Host, config.JoinPort)
 	}
-
-	server.Run(config.Host, config.JoinPort, raftNode, *joinServer)
 }

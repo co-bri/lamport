@@ -1,3 +1,4 @@
+ElectionLibrary = "Zookeeper"
 Host = "127.0.0.1"
 JoinPort = "5936"
 RaftDir = ".raft"

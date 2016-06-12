@@ -25,6 +25,14 @@ Assuming you've setup your Go workspace correctly, an exectuable file named "lam
 
 Coming soon will be build scripts and infrastructure as code that will allow you to get Lamport and it's depedencies up and running (pull requests are very much welcome). The idea is that operations folks can run Lamport to get a feel for running a distributed system. Lamport intends to be fully operationalized as each feature is added. Stay tuned for more details.
 
+## Testing
+
+To run tests for lamport you'll need to install [Apache Zookeeper](https://zookeeper.apache.org/releases.html) locally, and add the 'bin' directory of the distribution to the $PATH variable of the user running the tests. One this is done, you can execute tests by running the following command:
+
+`go test ./...`
+
+The tests will spin up a local instance of Zookeeper, and clean up any changes made to Zookeeper within the test suite.
+
 ## License
 
 MIT
