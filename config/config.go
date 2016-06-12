@@ -6,7 +6,7 @@ import (
 
 // Holds configuration options for lamport
 type Config struct {
-	Host, JoinPort, ElectionLibrary, RaftDir, RaftPort string
+	Host, LamportPort, ElectionLibrary, RaftDir, RaftPort string
 }
 
 // Reads configuration options out of a .toml file

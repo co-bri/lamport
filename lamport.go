@@ -18,13 +18,13 @@ func main() {
 	}
 
 	if config.ElectionLibrary == "Raft" {
-		raftNode, err := server.NewRaftNode(config.Host, config.RaftPort, config.JoinPort, config.RaftDir)
+		raftNode, err := server.NewRaftNode(config.Host, config.RaftPort, config.LamportPort, config.RaftDir)
 		if err != nil {
 			panic(fmt.Errorf("Error creating raft node: %s", err))
 		}
-		server.RunRaftServer(config.Host, config.JoinPort, raftNode, *joinServer)
+		server.RunRaftServer(config.Host, config.LamportPort, raftNode, *joinServer)
 	} else if config.ElectionLibrary == "Zookeeper" {
-		server.RunZkServer(config.Host, config.JoinPort)
+		server.RunZkServer(config.Host, config.LamportPort)
 	} else {
 		panic(fmt.Errorf("Unsupported election library! Must be 'Raft' or 'Zookeeper', not '%s'!", config.ElectionLibrary))
 	}
