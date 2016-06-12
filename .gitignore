@@ -1,2 +1,4 @@
 lamport
+.*
+!/.gitignore
 server/zookeeper.out

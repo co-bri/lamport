@@ -24,7 +24,7 @@ func init() {
 }
 
 // Run starts lamport on the given ip and port
-func Run(ip string, port string) {
+func RunZkServer(ip string, port string) {
 	log.Print("Starting lamport...")
 
 	zkConn, sCh, err := zk.Connect([]string{"127.0.0.1"}, time.Second)

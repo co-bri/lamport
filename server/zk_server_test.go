@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	zkSrvr = "zkServer.sh"
+	zkSrvr = "zkServer"
 	zkStrt = "start"
 	zkStop = "stop"
 )
