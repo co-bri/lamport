@@ -60,12 +60,12 @@ func TestThreeNodeCluster(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	if raftNode2.State() == "Leader" {
-		err = raftNode2.Join(raftNode1.RaftAddr)
+		err = raftNode2.Join(raftNode1.RaftAddr())
 		if err != nil {
 			t.Error(err)
 		}
 	} else if raftNode1.State() == "Leader" {
-		err = raftNode1.Join(raftNode2.RaftAddr)
+		err = raftNode1.Join(raftNode2.RaftAddr())
 		if err != nil {
 			t.Error(err)
 		}
@@ -82,12 +82,12 @@ func TestThreeNodeCluster(t *testing.T) {
 	}
 
 	if raftNode1.State() == "Leader" {
-		err = raftNode1.Join(raftNode3.RaftAddr)
+		err = raftNode1.Join(raftNode3.RaftAddr())
 		if err != nil {
 			t.Error(err)
 		}
 	} else if raftNode2.State() == "Leader" {
-		err = raftNode2.Join(raftNode3.RaftAddr)
+		err = raftNode2.Join(raftNode3.RaftAddr())
 		if err != nil {
 			t.Error(err)
 		}

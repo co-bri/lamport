@@ -15,6 +15,7 @@ type Raft interface {
 	LamportAddr() string
 	Leader() string
 	LeaderAddr() string
+	RaftAddr() string
 	State() string
 }
 
@@ -23,20 +24,25 @@ func init() {
 }
 
 // Run starts lamport on the given ip and hostname
-func Run(host string, port string, r Raft) {
+func Run(host string, port string, r Raft, joinServer string) {
 	log.Print("Initializing lamport...")
 	connCh := make(chan net.Conn)
 	go listen(host, port, connCh)
+
+	if joinServer != "" {
+		writeJoinMessage(r.RaftAddr(), joinServer)
+	}
 
 	for {
 		select {
 		case c := <-connCh:
 			log.Printf("Incoming connection from: %s", c.RemoteAddr())
-			handleMessage(c, r)
+			handleJoinMessage(c, r)
 		}
 	}
 }
 
+// listen on ports for connections
 func listen(host string, port string, ch chan net.Conn) {
 	ln, err := net.Listen("tcp", host+":"+port)
 	defer ln.Close()
@@ -53,7 +59,9 @@ func listen(host string, port string, ch chan net.Conn) {
 	}
 }
 
-func handleMessage(conn net.Conn, r Raft) {
+// Given a join message, either add the raft node address in the message to
+// the cluster, or forward the message on to the leader of the cluster.
+func handleJoinMessage(conn net.Conn, r Raft) {
 	msg, err := bufio.NewReader(conn).ReadString('\n')
 	if err != nil {
 		log.Printf("Error reading message: %s", err)
@@ -63,7 +71,7 @@ func handleMessage(conn net.Conn, r Raft) {
 		r.Join(node)
 	} else {
 		if r.LeaderAddr() != r.LamportAddr() {
-			writeMessage(msg, r.LeaderAddr())
+			writeJoinMessage(msg, r.LeaderAddr())
 		} else {
 			log.Printf("Can't add %s to the cluster as this Raft node doesn't know the correct leader address", node)
 		}
@@ -71,7 +79,9 @@ func handleMessage(conn net.Conn, r Raft) {
 	conn.Close()
 }
 
-func writeMessage(message, server string) {
+// Write a join message to a given server. The join message consists
+// of the raft host name and port commnunicated over a tcp socket.
+func writeJoinMessage(message, server string) {
 	conn, err := net.Dial("tcp", server)
 	if err != nil {
 		log.Printf("Error connecting to %s: %s", server, err)

@@ -40,7 +40,7 @@ type command struct {
 // for storage and communication.
 type RaftNode struct {
 	raft        *raft.Raft
-	RaftAddr    string
+	raftAddr    string
 	raftDir     string
 	lamportAddr string
 
@@ -66,21 +66,21 @@ func (r *RaftNode) init(host, port, lamportPort, raftDir string) error {
 	r.raftDir = raftDir
 	log.Printf("Setting raft directory to " + r.raftDir)
 
-	r.RaftAddr = net.JoinHostPort(host, port)
-	log.Printf("Raft protocol listening on " + r.RaftAddr)
+	r.raftAddr = net.JoinHostPort(host, port)
+	log.Printf("Raft protocol listening on " + r.raftAddr)
 
 	r.lamportAddr = net.JoinHostPort(host, lamportPort)
 
 	config := raft.DefaultConfig()
 	config.EnableSingleNode = true
 
-	addr, err := net.ResolveTCPAddr("tcp", r.RaftAddr)
+	addr, err := net.ResolveTCPAddr("tcp", r.raftAddr)
 	if err != nil {
 		return fmt.Errorf("Error resolving tcp address: %s", err)
 	}
 
 	transport, err :=
-		raft.NewTCPTransport(r.RaftAddr, addr, maxTcpPoolSize, tcpTimeout, os.Stderr)
+		raft.NewTCPTransport(r.raftAddr, addr, maxTcpPoolSize, tcpTimeout, os.Stderr)
 	if err != nil {
 		return fmt.Errorf("Error creating raft TCP transport: %s", err)
 	}
@@ -218,6 +218,10 @@ func (r *RaftNode) LamportAddr() string {
 // Gets the lamport address of the leader
 func (r *RaftNode) LeaderAddr() string {
 	return r.leaderAddr
+}
+
+func (r *RaftNode) RaftAddr() string {
+	return r.raftAddr
 }
 
 // Shuts down the raft cluster. A blocking operation.

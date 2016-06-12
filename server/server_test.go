@@ -35,21 +35,12 @@ func TestThreeServerCluster(t *testing.T) {
 		t.Error(err)
 	}
 
-	// Spin up 3 servers
-	go server.Run(localhost, lamportPort1, raftNode1)
-	go server.Run(localhost, lamportPort2, raftNode2)
-	go server.Run(localhost, lamportPort3, raftNode3)
+	// Spin up 2 servers and tell server 2 to join server 1 on startup
+	go server.Run(localhost, lamportPort1, raftNode1, "")
 
-	// Wait for servers to start up
 	time.Sleep(3 * time.Second)
 
-	// Tell server 2 to join server 1
-	conn, err := net.Dial("tcp", net.JoinHostPort(localhost, lamportPort1))
-	if err != nil {
-		t.Errorf("Error connecting to %s: %s", net.JoinHostPort(localhost, lamportPort1), err)
-	}
-	fmt.Fprintf(conn, net.JoinHostPort(localhost, raftPort2))
-	conn.Close()
+	go server.Run(localhost, lamportPort2, raftNode2, net.JoinHostPort(localhost, lamportPort1))
 
 	// Wait for nodes to communicate
 	time.Sleep(3 * time.Second)
@@ -60,6 +51,11 @@ func TestThreeServerCluster(t *testing.T) {
 	if node1Peers != 1 && node2Peers != 1 {
 		t.Errorf("Both raft nodes should have one peer, node 1 has %s and node 2 has %s", node1Peers, node2Peers)
 	}
+
+	// Create a third server
+	go server.Run(localhost, lamportPort3, raftNode3, "")
+
+	time.Sleep(3 * time.Second)
 
 	// Tell server 3 to join the non-leader server
 	var nonLeaderNode string
@@ -74,7 +70,7 @@ func TestThreeServerCluster(t *testing.T) {
 		cleanup(t)
 	}
 
-	conn, err = net.Dial("tcp", nonLeaderNode)
+	conn, err := net.Dial("tcp", nonLeaderNode)
 	if err != nil {
 		t.Errorf("Error connecting to %s: %s", nonLeaderNode, err)
 	}

@@ -8,6 +8,7 @@ import (
 )
 
 func main() {
+	joinServer := flag.String("join", "", "A Lamport server to join")
 	tomlConfigFile := flag.String("tomlConfigFile", "lamport.toml", "The TOML file used to configure lamport")
 	flag.Parse()
 
@@ -21,5 +22,5 @@ func main() {
 		panic(fmt.Errorf("Error creating raft node: %s", err))
 	}
 
-	server.Run(config.Host, config.JoinPort, raftNode)
+	server.Run(config.Host, config.JoinPort, raftNode, *joinServer)
 }
