@@ -119,6 +119,7 @@ func (r *RaftNode) updateFsm() {
 	}
 }
 
+// Applies a command to the state machine
 func (f *fsm) Apply(l *raft.Log) interface{} {
 	var c command
 
@@ -129,6 +130,7 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 	return f.apply(c.Val)
 }
 
+// Restores the state machine from a previous snapshot
 func (f *fsm) Restore(rc io.ReadCloser) error {
 	var str string
 	if err := json.NewDecoder(rc).Decode(&str); err != nil {
@@ -139,6 +141,7 @@ func (f *fsm) Restore(rc io.ReadCloser) error {
 	return nil
 }
 
+// Takes a snapshot of the state machine
 func (f *fsm) Snapshot() (raft.FSMSnapshot, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -153,6 +156,7 @@ func (f *fsm) apply(value string) interface{} {
 	return nil
 }
 
+// Saves a snapshot of the state machine
 func (f *fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 	err := func() error {
 		// Encode data.
@@ -205,6 +209,8 @@ func (r *RaftNode) Leader() string {
 	return r.raft.Leader()
 }
 
+// Gets the lamport address of this node. If this node is the leader,
+// it will be equal to LeaderAddr()
 func (r *RaftNode) LamportAddr() string {
 	return r.lamportAddr
 }
@@ -224,6 +230,9 @@ func (r *RaftNode) Shutdown() error {
 	}
 }
 
+// Sets the leader address of the Raft node and applies
+// it to all nodes in the cluster. Can only be run
+// on the leader.
 func (r *RaftNode) Set(leaderAddr string) error {
 	if r.State() != "Leader" {
 		return fmt.Errorf("Can't set value on non-leader node")
