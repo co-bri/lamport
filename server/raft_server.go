@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+// Raft is an interface that contains operations that should
+// be implemented by a raft node
 type Raft interface {
 	Join(addr string) error
 	LamportAddr() string
@@ -23,7 +25,8 @@ func init() {
 	log.SetOutput(os.Stdout)
 }
 
-// Run starts lamport on the given ip and hostname
+// RunRaftServer starts lamport on the given ip and hostname using raft
+// for leader election
 func RunRaftServer(host string, port string, r Raft, joinServer string) {
 	log.Print("Initializing lamport...")
 	connCh := make(chan net.Conn)

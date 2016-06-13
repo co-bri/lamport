@@ -23,7 +23,8 @@ func init() {
 	log.SetOutput(os.Stdout)
 }
 
-// Run starts lamport on the given ip and port
+// RunZkServer starts lamport on the given ip and port using zookeeper
+// for leader election
 func RunZkServer(ip string, port string) {
 	log.Print("Starting lamport...")
 

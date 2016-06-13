@@ -4,12 +4,12 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// Holds configuration options for lamport
+// Config holds configuration options for lamport
 type Config struct {
 	Host, LamportPort, ElectionLibrary, RaftDir, RaftPort string
 }
 
-// Reads configuration options out of a .toml file
+// ReadConfig reads configuration options out of a .toml file
 func ReadConfig(tomlFilename string) (Config, error) {
 	var config Config
 

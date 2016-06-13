@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	maxTcpPoolSize      = 3
+	maxTCPPoolSize      = 3
 	raftDbName          = "raft.db"
 	retainSnapshotCount = 2
 	tcpTimeout          = 10 * time.Second
@@ -36,7 +36,7 @@ type command struct {
 	Val string
 }
 
-// A struct that wraps the raft struct, along with fields
+// RaftNode wraps the raft struct, along with fields
 // for storage and communication.
 type RaftNode struct {
 	raft        *raft.Raft
@@ -48,9 +48,9 @@ type RaftNode struct {
 	mu         sync.Mutex
 }
 
-// Create a new Raft node that can be reached and communicates on
-// a given host and port. Also takes in a raft directory to
-// use for various raft storage functions.
+// NewRaftNode creates a new Raft node that can be reached and communicates on
+// a given host and port. Also takes in a raft directory to use for various raft
+// storage functions.
 func NewRaftNode(host, port, lamportPort, raftDir string) (*RaftNode, error) {
 	r := &RaftNode{}
 
@@ -80,7 +80,7 @@ func (r *RaftNode) init(host, port, lamportPort, raftDir string) error {
 	}
 
 	transport, err :=
-		raft.NewTCPTransport(r.raftAddr, addr, maxTcpPoolSize, tcpTimeout, os.Stderr)
+		raft.NewTCPTransport(r.raftAddr, addr, maxTCPPoolSize, tcpTimeout, os.Stderr)
 	if err != nil {
 		return fmt.Errorf("Error creating raft TCP transport: %s", err)
 	}
@@ -188,7 +188,7 @@ func (f *fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 
 func (f *fsmSnapshot) Release() {}
 
-// Attempts to add another Raft node to the cluster by passing in its
+// Join attempts to add another Raft node to the cluster by passing in its
 // address. Will fail if not run on the leader.
 func (r *RaftNode) Join(addr string) error {
 	log.Printf("Attempting to add %s to the cluster...", addr)
@@ -204,37 +204,37 @@ func (r *RaftNode) Join(addr string) error {
 	return err
 }
 
-// Gets the leader of the cluster
+// Leader returns the raft address of the leader of the cluster.
 func (r *RaftNode) Leader() string {
 	return r.raft.Leader()
 }
 
-// Gets the lamport address of this node. If this node is the leader,
-// it will be equal to LeaderAddr()
+// LamportAddr gets the lamport address of this node. If this node is the
+// leader, it will be equal to LeaderAddr()
 func (r *RaftNode) LamportAddr() string {
 	return r.lamportAddr
 }
 
-// Gets the lamport address of the leader
+// LeaderAddr returns the lamport address of the leader node.
 func (r *RaftNode) LeaderAddr() string {
 	return r.leaderAddr
 }
 
+// RaftAddr returns this node's raft address.
 func (r *RaftNode) RaftAddr() string {
 	return r.raftAddr
 }
 
-// Shuts down the raft cluster. A blocking operation.
+// Shutdown shuts down the raft cluster. A blocking operation.
 func (r *RaftNode) Shutdown() error {
 	future := r.raft.Shutdown()
 	if future.Error() != nil {
 		return future.Error()
-	} else {
-		return nil
 	}
+	return nil
 }
 
-// Sets the leader address of the Raft node and applies
+// Set sets the leader address of the Raft node and applies
 // it to all nodes in the cluster. Can only be run
 // on the leader.
 func (r *RaftNode) Set(leaderAddr string) error {
@@ -258,13 +258,13 @@ func (r *RaftNode) Set(leaderAddr string) error {
 	return nil
 }
 
-// Returns the state of the Raft node, which is one of Candidate,
+// State returns the state of the Raft node, which is one of Candidate,
 // Leader, Follower, or Shutdown.
 func (r *RaftNode) State() string {
 	return r.raft.State().String()
 }
 
-// Returns the map of various internal raft stats.
+// Stats returns the map of various internal raft stats.
 func (r *RaftNode) Stats() map[string]string {
 	return r.raft.Stats()
 }
