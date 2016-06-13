@@ -59,7 +59,7 @@ func watchNode(conn *zk.Conn, nodeID string) <-chan zk.Event {
 
 	nds, _, ch, err := conn.ChildrenW(zkNodes)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	sort.Strings(nds)
@@ -86,7 +86,7 @@ func createZNode(conn *zk.Conn, host string, port string) (path string) {
 	data := []uint8(host + ":" + port)
 	path, err := conn.Create(zkNodes+"/"+zkPrfx, data, zk.FlagEphemeral|zk.FlagSequence, acl)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	log.Printf("Created candidate znode %s", path)
 	return path
@@ -96,25 +96,25 @@ func createZNode(conn *zk.Conn, host string, port string) (path string) {
 func createParentZNodes(conn *zk.Conn) {
 	exists, _, err := conn.Exists(zkRoot)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	if !exists {
 		log.Printf("Root znode not found, creating %s in zookeeper", zkRoot)
 		if _, err := conn.Create(zkRoot, nil, 0, acl); err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 	}
 
 	exists, _, err = conn.Exists(zkNodes)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	if !exists {
 		log.Printf("Leader election parent node not found, Creating %s in zookeeper", zkNodes)
 		if _, err := conn.Create(zkNodes, nil, 0, acl); err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 	}
 }
