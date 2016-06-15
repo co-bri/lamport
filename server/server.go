@@ -35,19 +35,21 @@ func Run(ip string, port string) {
 	// setup required znodes, set watch for leader election
 	createParentZNodes(zkConn)
 	zn := createZNode(zkConn, ip, port)
-	wCh := watchNode(zkConn, strings.Split(zn, "/")[3])
+	nodeID := strings.Split(zn, "/")[3]
+	wCh := watchNode(zkConn, nodeID)
 
 	for {
 		select {
+		// for zk session changes
 		case se := <-sCh:
 			if se.State == zk.StateUnknown || se.State == zk.StateDisconnected {
 				log.Printf("Zookeeper %s, state: %s, server: %s ", se.Type, se.State, se.Server)
 			}
+		// for leader changes
 		case we := <-wCh:
-			log.Printf("Zookeeper watch event: %s", we)
-			_, _, wCh, err = zkConn.ChildrenW(zkNodes)
-			if err != nil {
-				log.Fatal(err)
+			if we.Type == zk.EventNodeDeleted {
+				log.Printf("Watched node deleted, resetting watch")
+				wCh = watchNode(zkConn, nodeID)
 			}
 		}
 	}
@@ -63,8 +65,9 @@ func watchNode(conn *zk.Conn, nodeID string) <-chan zk.Event {
 	}
 
 	sort.Strings(nds)
-	log.Printf("Current leader id: %s", nds[0])
 
+	// set the watch id to the preceding node
+	// see "http://zookeeper.apache.org/doc/trunk/recipes.html#sc_leaderElection"
 	for _, id := range nds {
 		if id >= nodeID {
 			break
@@ -73,11 +76,18 @@ func watchNode(conn *zk.Conn, nodeID string) <-chan zk.Event {
 		}
 	}
 
-	if wchID == nodeID {
-		log.Printf("Entering leader mode")
-	} else {
+	// not leader, set watch for leader changes
+	if wchID != nodeID {
+		data, _, ch, err := conn.GetW(zkNodes + "/" + wchID)
+		if err != nil {
+			log.Fatalf("Error setting watch on candidate node: %s, %s", wchID, data)
+		}
 		log.Printf("Entering follower mode, watching candidate node: %s for changes", wchID)
+		return ch
 	}
+
+	// leader, return child watch channel
+	log.Printf("Entering leader mode")
 	return ch
 }
 

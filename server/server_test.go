@@ -32,7 +32,6 @@ func TestWatchCandidateNode(t *testing.T) {
 	if err := conn.Delete(pth, 0); err != nil {
 		t.Fatalf("Error deleting %s: %s", pth, err)
 	}
-	// server_test.go:35: {EventNodeChildrenChanged Unknown /lamport/nodes <nil> }
 	// receive the delete event
 	e := <-ch
 	if e.Type != zk.EventNodeChildrenChanged {
@@ -102,6 +101,14 @@ func startZk() (*zk.Conn, error) {
 	if err := cmd.Wait(); err != nil {
 		return nil, err
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			stopZk()
+		}
+	}()
+
+	// this sucks, but the zk library is not friendly to timeouts
+	time.Sleep(30 * time.Second)
 
 	conn, _, err := zk.Connect([]string{"127.0.0.1"}, time.Second)
 	if err != nil {
