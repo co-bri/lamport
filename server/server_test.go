@@ -15,6 +15,29 @@ const (
 	zkStop = "stop"
 )
 
+func TestRunSingleNode(t *testing.T) {
+	conn, err := startZk()
+	if err != nil {
+		t.Fatalf("Error starting zookeeper %s", err)
+	}
+	defer func() {
+		conn.Close()
+		stopZk()
+	}()
+
+	go Run("127.0.0.1", "5936")
+	time.Sleep(10 * time.Second)
+
+	nds, _, _, err := conn.ChildrenW(zkNodes)
+	if err != nil {
+		t.Fatalf("Error verifying candidate znode: %s", err)
+	}
+
+	if len(nds) != 1 {
+		t.Fatalf("Expected 1 candidate node, but found %d", len(nds))
+	}
+}
+
 func TestWatchCandidateNode(t *testing.T) {
 	conn, err := startZk()
 	if err != nil {
@@ -119,6 +142,17 @@ func startZk() (*zk.Conn, error) {
 }
 
 func cleanZk(conn *zk.Conn) error {
+	nds, _, _, err := conn.ChildrenW(zkNodes)
+	if err != nil {
+		return err
+	}
+
+	for _, id := range nds {
+		if err := conn.Delete(zkNodes+"/"+id, 0); err != nil {
+			return err
+		}
+	}
+
 	if err := conn.Delete(zkNodes, 0); err != nil {
 		return err
 	}
