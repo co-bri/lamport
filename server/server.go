@@ -24,13 +24,16 @@ func init() {
 }
 
 // Run starts lamport on the given ip and port
-func Run(ip string, port string) {
+func Run(ip string, port string, ch <-chan bool) {
 	log.Print("Starting lamport...")
 
 	zkConn, sCh, err := zk.Connect([]string{"127.0.0.1"}, time.Second)
 	if err != nil {
 		log.Fatalf("Error connecting to zookeeper: %s", err)
 	}
+	defer func() {
+		zkConn.Close()
+	}()
 
 	// setup required znodes, set watch for leader election
 	createParentZNodes(zkConn)
@@ -50,6 +53,10 @@ func Run(ip string, port string) {
 			if we.Type == zk.EventNodeDeleted {
 				log.Printf("Watched node deleted, resetting watch")
 				wCh = watchNode(zkConn, nodeID)
+			}
+		case q := <-ch:
+			if q {
+				return
 			}
 		}
 	}

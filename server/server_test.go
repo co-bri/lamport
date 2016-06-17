@@ -25,7 +25,8 @@ func TestRunSingleNode(t *testing.T) {
 		stopZk()
 	}()
 
-	go Run("127.0.0.1", "5936")
+	ch := make(chan bool)
+	go Run("127.0.0.1", "5936", ch)
 	time.Sleep(10 * time.Second)
 
 	nds, _, _, err := conn.ChildrenW(zkNodes)
@@ -35,6 +36,18 @@ func TestRunSingleNode(t *testing.T) {
 
 	if len(nds) != 1 {
 		t.Fatalf("Expected 1 candidate node, but found %d", len(nds))
+	}
+
+	ch <- true
+	time.Sleep(5 * time.Second)
+
+	nds, _, _, err = conn.ChildrenW(zkNodes)
+	if err != nil {
+		t.Fatalf("Error verifying candidate znode: %s", err)
+	}
+
+	if len(nds) != 0 {
+		t.Fatalf("Expected 0 candidate node, but found %d", len(nds))
 	}
 }
 
@@ -131,7 +144,7 @@ func startZk() (*zk.Conn, error) {
 	}()
 
 	// this sucks, but the zk library is not friendly to timeouts
-	time.Sleep(30 * time.Second)
+	time.Sleep(25 * time.Second)
 
 	conn, _, err := zk.Connect([]string{"127.0.0.1"}, time.Second)
 	if err != nil {

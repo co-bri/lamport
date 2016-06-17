@@ -11,5 +11,6 @@ func main() {
 	ip := flag.String("host", "127.0.0.1", "The host ip on which lamport will run")
 
 	flag.Parse()
-	server.Run(*ip, *port)
+	ch := make(chan bool)
+	server.Run(*ip, *port, ch)
 }
