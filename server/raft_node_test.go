@@ -129,7 +129,7 @@ func deleteDir(dir string, t *testing.T) {
 }
 
 func shutdownRaftNode(r *server.RaftNode, t *testing.T) {
-	t.Logf("Shutting down raft node %s", r.RaftAddr)
+	t.Logf("Shutting down raft node %v", r.RaftAddr)
 
 	err := r.Shutdown()
 	if err != nil {
