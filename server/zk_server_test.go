@@ -15,6 +15,42 @@ const (
 	zkStop = "stop"
 )
 
+func TestRunSingleNode(t *testing.T) {
+	conn, err := startZk()
+	if err != nil {
+		t.Fatalf("Error starting zookeeper %s", err)
+	}
+	defer func() {
+		conn.Close()
+		stopZk()
+	}()
+
+	ch := make(chan bool)
+	go RunZkServer("127.0.0.1", "5936", ch)
+	time.Sleep(10 * time.Second)
+
+	nds, _, _, err := conn.ChildrenW(zkNodes)
+	if err != nil {
+		t.Fatalf("Error verifying candidate znode: %s", err)
+	}
+
+	if len(nds) != 1 {
+		t.Fatalf("Expected 1 candidate node, but found %d", len(nds))
+	}
+
+	ch <- true
+	time.Sleep(5 * time.Second)
+
+	nds, _, _, err = conn.ChildrenW(zkNodes)
+	if err != nil {
+		t.Fatalf("Error verifying candidate znode: %s", err)
+	}
+
+	if len(nds) != 0 {
+		t.Fatalf("Expected 0 candidate node, but found %d", len(nds))
+	}
+}
+
 func TestWatchCandidateNode(t *testing.T) {
 	conn, err := startZk()
 	if err != nil {
@@ -32,7 +68,6 @@ func TestWatchCandidateNode(t *testing.T) {
 	if err := conn.Delete(pth, 0); err != nil {
 		t.Fatalf("Error deleting %s: %s", pth, err)
 	}
-	// server_test.go:35: {EventNodeChildrenChanged Unknown /lamport/nodes <nil> }
 	// receive the delete event
 	e := <-ch
 	if e.Type != zk.EventNodeChildrenChanged {
@@ -102,6 +137,14 @@ func startZk() (*zk.Conn, error) {
 	if err := cmd.Wait(); err != nil {
 		return nil, err
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			stopZk()
+		}
+	}()
+
+	// this sucks, but the zk library is not friendly to timeouts
+	time.Sleep(25 * time.Second)
 
 	conn, _, err := zk.Connect([]string{"127.0.0.1"}, time.Second)
 	if err != nil {
@@ -112,6 +155,17 @@ func startZk() (*zk.Conn, error) {
 }
 
 func cleanZk(conn *zk.Conn) error {
+	nds, _, _, err := conn.ChildrenW(zkNodes)
+	if err != nil {
+		return err
+	}
+
+	for _, id := range nds {
+		if err := conn.Delete(zkNodes+"/"+id, 0); err != nil {
+			return err
+		}
+	}
+
 	if err := conn.Delete(zkNodes, 0); err != nil {
 		return err
 	}

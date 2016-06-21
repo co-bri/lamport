@@ -24,7 +24,8 @@ func main() {
 		}
 		server.RunRaftServer(config.Host, config.LamportPort, raftNode, *joinServer)
 	} else if config.ElectionLibrary == "Zookeeper" {
-		server.RunZkServer(config.Host, config.LamportPort)
+		ch := make(chan bool)
+		server.RunZkServer(config.Host, config.LamportPort, ch)
 	} else {
 		panic(fmt.Errorf("Unsupported election library! Must be 'Raft' or 'Zookeeper', not '%s'!", config.ElectionLibrary))
 	}
