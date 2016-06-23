@@ -1,6 +1,6 @@
 # Lamport
 
-An academic exercise in building a distributed system, named in honor of Turing Award Winner [Leslie Lamport](http://www.lamport.org/). The purpose of this project is to explore the complexities involved with building a distributed computing system. The origins of this project are a [2016 presentation](http://www.meetup.com/Distributed-Computing-Denver/events/230054258/) for the [Distributed Computing Denver](http://www.meetup.com/Distributed-Computing-Denver/) Meetup group. 
+An academic exercise in building a distributed system, named in honor of Turing Award Winner [Leslie Lamport](http://www.lamport.org/). The purpose of this project is to explore the complexities involved with building a distributed computing system. The origins of this project are a [2016 presentation](http://www.meetup.com/Distributed-Computing-Denver/events/230054258/) for the [Distributed Computing Denver](http://www.meetup.com/Distributed-Computing-Denver/) Meetup group.
 
 ## Developer Setup
 
@@ -32,6 +32,32 @@ To run tests for lamport you'll need to install [Apache Zookeeper](https://zooke
 `go test ./...`
 
 The tests will spin up a local instance of Zookeeper, and clean up any changes made to Zookeeper within the test suite.
+
+### OSX and Homebrew
+
+Users running OSX can install and manage ZooKeeper using Homebrew by running:
+
+```
+brew install zookeeper
+```
+
+This will install ZooKeeper to `/usr/local/Cellar/zookeeper/X.Y.Z/` (this will vary depending on the current version of ZooKeeper, so make sure to note the version numbers). Add this to your path:
+
+```
+export PATH="$PATH:/usr/local/Cellar/zookeeper/X.Y.Z/bin"
+```
+
+Finally, create a symbolic link:
+
+```
+ln -s /usr/local/Cellar/zookeeper/X.Y.Z/bin/zkServer /usr/local/Cellar/zookeeper/X.Y.Z/bin/zkServer.sh
+```
+
+You can now run the test suite with:
+
+```
+go test ./...
+```
 
 ## License
 
