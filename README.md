@@ -33,9 +33,9 @@ To run tests for lamport you'll need to install [Apache Zookeeper](https://zooke
 
 The tests will spin up a local instance of Zookeeper, and clean up any changes made to Zookeeper within the test suite.
 
-### Linux
+### Zookeeper Install: Linux
 
-Users running Linux can run the following command to install Zookeeper:
+Users running Linux can install Zookeeper by running the following commands:
 
 ```
 wget http://apache.claz.org/zookeeper/zookeeper-3.4.8/zookeeper-3.4.8.tar.gz && 
@@ -48,9 +48,9 @@ This will install Zookeeper to `/usr/local/zookeeper-3.4.8.tar.gz`, and then you
 export PATH="$PATH:/usr/local/zookeeper-2.4.8/bin"
 ```
 
-### OSX and Homebrew
+### Zookeeper Install: OSX
 
-Users running OSX can install and manage ZooKeeper using Homebrew by running:
+Users running OSX can install and manage ZooKeeper using [Homebrew](http://brew.sh/) by running:
 
 ```
 brew install zookeeper
