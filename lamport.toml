@@ -1,0 +1,5 @@
+ElectionLibrary = "Zookeeper"
+Host = "127.0.0.1"
+LamportPort = "5936"
+RaftDir = ".raft"
+RaftPort = "8500"

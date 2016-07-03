@@ -26,7 +26,7 @@ func TestRunSingleNode(t *testing.T) {
 	}()
 
 	ch := make(chan bool)
-	go Run("127.0.0.1", "5936", ch)
+	go RunZkServer("127.0.0.1", "5936", ch)
 	time.Sleep(10 * time.Second)
 
 	nds, _, _, err := conn.ChildrenW(zkNodes)

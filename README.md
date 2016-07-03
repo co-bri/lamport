@@ -21,7 +21,23 @@ Assuming you've setup your Go workspace correctly, an exectuable file named "lam
 
 `./lamport`
 
+Please note that you need an instance of a Zookeeper server running if Lamport is using the Zookeeper library for leader election in order for Lamport to start successfully.
+
+You can get information about Lamport's command line flags by running:
+
+`./lamport -h`
+
 Coming soon will be build scripts and infrastructure as code that will allow you to get Lamport and it's depedencies up and running (pull requests are very much welcome). The idea is that operations folks can run Lamport to get a feel for running a distributed system. Lamport intends to be fully operationalized as each feature is added. Stay tuned for more details.
+
+## Configuration 
+
+Lamport is configured via a [TOML](https://github.com/toml-lang/toml) configuration file. The application defaults to lamport.toml, though you can specify a different configuration file via a command line arg. The following values are defined in the file:
+
+- **ElectionLibrary** - The library to use for leader elections. This value must be either "Raft" or "Zookeeper". The default is Zookeeper.
+- **Host** - The hostname that Lamport runs on and uses to advertise connections. The default is 127.0.0.1
+- **LamportPort** - The port name that the Lamport server uses to connect. The default is 5936.
+- **RaftDir** - The directory the Raft library uses to store data about the state of the Raft cluster. The default is .raftDir.
+- **RaftPort** - The port the Raft library uses to communicate on. The default is 8500.
 
 We're also working on a Wiki that will walk users through the implementation details for specific features (e.g. leader election)
 
