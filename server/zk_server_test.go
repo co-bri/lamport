@@ -16,13 +16,13 @@ const (
 )
 
 func TestRunSingleNode(t *testing.T) {
-	conn, err := startZk()
+	conn, zkExec, err := startZk()
 	if err != nil {
 		t.Fatalf("Error starting zookeeper %s", err)
 	}
 	defer func() {
 		conn.Close()
-		stopZk()
+		stopZk(zkExec)
 	}()
 
 	ch := make(chan bool)
@@ -52,13 +52,13 @@ func TestRunSingleNode(t *testing.T) {
 }
 
 func TestWatchCandidateNode(t *testing.T) {
-	conn, err := startZk()
+	conn, zkExec, err := startZk()
 	if err != nil {
 		t.Fatalf("Error starting zookeeper %s", err)
 	}
 	defer func() {
 		conn.Close()
-		stopZk()
+		stopZk(zkExec)
 	}()
 	createParentZNodes(conn)                    // Need to make sure lamport zk nodes are present
 	pth := createZNode(conn, "0.0.0.0", "1234") // Need to create candidate node
@@ -82,13 +82,13 @@ func TestWatchCandidateNode(t *testing.T) {
 }
 
 func TestCreateCandidateZNode(t *testing.T) {
-	conn, err := startZk()
+	conn, zkExec, err := startZk()
 	if err != nil {
 		t.Fatalf("Error starting zookeeper %s", err)
 	}
 	defer func() {
 		conn.Close()
-		stopZk()
+		stopZk(zkExec)
 	}()
 	createParentZNodes(conn) // Need to make sure lamport zk nodes are present
 	pth := createZNode(conn, "0.0.0.0", "1234")
@@ -104,13 +104,13 @@ func TestCreateCandidateZNode(t *testing.T) {
 }
 
 func TestCreateParentZNodes(t *testing.T) {
-	conn, err := startZk()
+	conn, zkExec, err := startZk()
 	if err != nil {
 		t.Fatalf("Error starting zookeeper %s", err)
 	}
 	defer func() {
 		conn.Close()
-		stopZk()
+		stopZk(zkExec)
 	}()
 	createParentZNodes(conn)
 	if exists, _, err := conn.Exists(zkRoot); err != nil || !exists {
@@ -126,20 +126,25 @@ func TestCreateParentZNodes(t *testing.T) {
 	}
 }
 
-func startZk() (*zk.Conn, error) {
-	if _, err := exec.LookPath(zkSrvr); err != nil {
-		return nil, err
+func startZk() (*zk.Conn, string, error) {
+	zkExec := zkSrvr
+	if _, err := exec.LookPath(zkExec); err != nil {
+		// also check for zkServer.sh
+		zkExec = zkSrvr + ".sh"
+		if _, err := exec.LookPath(zkExec); err != nil {
+			return nil, zkExec, err
+		}
 	}
-	cmd := exec.Command(zkSrvr, zkStrt)
+	cmd := exec.Command(zkExec, zkStrt)
 	if err := cmd.Start(); err != nil {
-		return nil, err
+		return nil, zkExec, err
 	}
 	if err := cmd.Wait(); err != nil {
-		return nil, err
+		return nil, zkExec, err
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			stopZk()
+			stopZk(zkExec)
 		}
 	}()
 
@@ -148,10 +153,10 @@ func startZk() (*zk.Conn, error) {
 
 	conn, _, err := zk.Connect([]string{"127.0.0.1"}, time.Second)
 	if err != nil {
-		return nil, err
+		return nil, zkExec, err
 	}
 
-	return conn, nil
+	return conn, zkExec, nil
 }
 
 func cleanZk(conn *zk.Conn) error {
@@ -176,11 +181,11 @@ func cleanZk(conn *zk.Conn) error {
 	return nil
 }
 
-func stopZk() error {
-	if _, err := exec.LookPath(zkSrvr); err != nil {
+func stopZk(zkExec string) error {
+	if _, err := exec.LookPath(zkExec); err != nil {
 		return err
 	}
-	cmd := exec.Command(zkSrvr, zkStop)
+	cmd := exec.Command(zkExec, zkStop)
 	if err := cmd.Start(); err != nil {
 		return err
 	}
