@@ -2,6 +2,7 @@
 package server
 
 import (
+	"os"
 	"os/exec"
 	"testing"
 	"time"
@@ -171,11 +172,15 @@ func cleanZk(conn *zk.Conn) error {
 		}
 	}
 
-	if err := conn.Delete(zkNodes, 0); err != nil {
+	if err = conn.Delete(zkNodes, 0); err != nil {
 		return err
 	}
 
-	if err := conn.Delete(zkRoot, 0); err != nil {
+	if err = conn.Delete(zkRoot, 0); err != nil {
+		return err
+	}
+
+	if err = os.Remove("zookeeper.out"); err != nil {
 		return err
 	}
 	return nil

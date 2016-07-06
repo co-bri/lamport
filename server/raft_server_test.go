@@ -49,7 +49,7 @@ func TestThreeServerCluster(t *testing.T) {
 	node2Peers := getPeersCount(raftNode2.Stats())
 
 	if node1Peers != 1 && node2Peers != 1 {
-		t.Errorf("Both raft nodes should have one peer, node 1 has %s and node 2 has %v", node1Peers, node2Peers)
+		t.Errorf("Both raft nodes should have one peer, node 1 has %d and node 2 has %d", node1Peers, node2Peers)
 	}
 
 	// Create a third server
