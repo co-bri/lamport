@@ -1,5 +1,4 @@
-// Package server provides methods for running lamport
-package server
+package zk
 
 import (
 	"log"
@@ -23,24 +22,30 @@ func init() {
 	log.SetOutput(os.Stdout)
 }
 
-// RunZkServer starts lamport on the given ip and port using zookeeper
-// for leader election
-func RunZkServer(ip string, port string, ch <-chan bool) {
-	log.Print("Starting lamport...")
+// WatchLeader uses zookeeper to elect a leader, and returns
+// a channel that recieves leader change events
+func LeaderWatch(ip string, port string, zkh []string, sigCh chan bool) chan bool {
+	ch := make(chan bool)
+	go leaderWatch(ip, port, zkh, ch, sigCh)
+	return ch
+}
 
-	zkConn, sCh, err := zk.Connect([]string{"127.0.0.1"}, time.Second)
+func leaderWatch(ip string, port string, zkh []string, ch chan bool, sigCh chan bool) {
+	zkConn, sCh, err := zk.Connect(zkh, time.Second)
 	if err != nil {
 		log.Fatalf("Error connecting to zookeeper: %s", err)
 	}
 	defer func() {
-		zkConn.Close()
+		if s := zkConn.State(); s == zk.StateConnected {
+			zkConn.Close()
+		}
 	}()
 
 	// setup required znodes, set watch on candidate node
 	createParentZNodes(zkConn)
 	zn := createZNode(zkConn, ip, port)
 	nodeID := strings.Split(zn, "/")[3]
-	wCh := watchNode(zkConn, nodeID)
+	wCh, ldr := watchNode(zkConn, nodeID)
 
 	for {
 		select {
@@ -53,11 +58,16 @@ func RunZkServer(ip string, port string, ch <-chan bool) {
 		case we := <-wCh:
 			if we.Type == zk.EventNodeDeleted {
 				log.Printf("Watched node deleted, resetting watch")
-				wCh = watchNode(zkConn, nodeID)
+				if wCh, ldr = watchNode(zkConn, nodeID); ldr {
+					ch <- true
+				} else {
+					ch <- false
+				}
 			}
-		// for termination signal
-		case q := <-ch:
-			if q {
+		case sig := <-sigCh:
+			if sig {
+				zkConn.Close()
+				sigCh <- true
 				return
 			}
 		}
@@ -65,7 +75,7 @@ func RunZkServer(ip string, port string, ch <-chan bool) {
 }
 
 // sets a watch on the candidate node having seq number prior to supplied node id
-func watchNode(conn *zk.Conn, nodeID string) <-chan zk.Event {
+func watchNode(conn *zk.Conn, nodeID string) (<-chan zk.Event, bool) {
 	wchID := nodeID
 
 	nds, _, ch, err := conn.ChildrenW(zkNodes)
@@ -92,12 +102,12 @@ func watchNode(conn *zk.Conn, nodeID string) <-chan zk.Event {
 			log.Fatalf("Error setting watch on candidate node: %s, %s", wchID, data)
 		}
 		log.Printf("Entering follower mode, watching candidate node: %s for changes", wchID)
-		return ch
+		return ch, false
 	}
 
 	// leader, return child watch channel
 	log.Printf("Entering leader mode")
-	return ch
+	return ch, true
 }
 
 // creates a candidate znode for this lamport instance

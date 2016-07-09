@@ -1,5 +1,4 @@
-// Unit tests for the 'server' package
-package server
+package zk
 
 import (
 	"os"
@@ -16,7 +15,7 @@ const (
 	zkStop = "stop"
 )
 
-func TestRunSingleNode(t *testing.T) {
+func TestWatchLeaderSingle(t *testing.T) {
 	conn, zkExec, err := startZk()
 	if err != nil {
 		t.Fatalf("Error starting zookeeper %s", err)
@@ -26,8 +25,8 @@ func TestRunSingleNode(t *testing.T) {
 		stopZk(zkExec)
 	}()
 
-	ch := make(chan bool)
-	go RunZkServer("127.0.0.1", "5936", ch)
+	sigCh := make(chan bool)
+	LeaderWatch("127.0.0.1", "5936", []string{"127.0.0.1"}, sigCh)
 	time.Sleep(10 * time.Second)
 
 	nds, _, _, err := conn.ChildrenW(zkNodes)
@@ -39,8 +38,8 @@ func TestRunSingleNode(t *testing.T) {
 		t.Fatalf("Expected 1 candidate node, but found %d", len(nds))
 	}
 
-	ch <- true
-	time.Sleep(5 * time.Second)
+	sigCh <- true
+	<-sigCh
 
 	nds, _, _, err = conn.ChildrenW(zkNodes)
 	if err != nil {
@@ -63,7 +62,11 @@ func TestWatchCandidateNode(t *testing.T) {
 	}()
 	createParentZNodes(conn)                    // Need to make sure lamport zk nodes are present
 	pth := createZNode(conn, "0.0.0.0", "1234") // Need to create candidate node
-	ch := watchNode(conn, pth)
+	ch, ldr := watchNode(conn, pth)
+
+	if !ldr {
+		t.Fatal("Expected single node to be leader")
+	}
 
 	// delete the candidate node to generate an event on the channel
 	if err := conn.Delete(pth, 0); err != nil {

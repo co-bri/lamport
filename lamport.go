@@ -3,20 +3,29 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
 
 	"github.com/Distributed-Computing-Denver/lamport/config"
-	"github.com/Distributed-Computing-Denver/lamport/server"
+	"github.com/Distributed-Computing-Denver/lamport/node"
 )
 
 func main() {
-	joinServer := flag.String("join", "", "A Lamport server to join")
-	tomlConfigFile := flag.String("tomlConfigFile", "lamport.toml", "The TOML file used to configure lamport")
+	configFile := flag.String("configFile", "lamport.toml", "Lamport config file")
 	flag.Parse()
 
-	config, err := config.ReadConfig(*tomlConfigFile)
+	config, err := config.ReadConfig(*configFile)
 	if err != nil {
 		panic(fmt.Errorf("Error reading config file: %s", err))
 	}
 
-	server.Run(*joinServer, config)
+	sigCh := make(chan bool)
+	go node.Run(config, sigCh)
+
+	// handle SIGINT, notify node, wait for confirm to exit
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	<-c
+	sigCh <- true
+	<-sigCh
 }

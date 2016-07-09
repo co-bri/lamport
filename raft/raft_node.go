@@ -1,4 +1,4 @@
-package server
+package raft
 
 import (
 	"encoding/json"
@@ -51,10 +51,10 @@ type RaftNode struct {
 // NewRaftNode creates a new Raft node that can be reached and communicates on
 // a given host and port. Also takes in a raft directory to use for various raft
 // storage functions.
-func NewRaftNode(host, port, lamportPort, raftDir string) (*RaftNode, error) {
+func NewRaftNode(host, raftPort, port, raftDir string) (*RaftNode, error) {
 	r := &RaftNode{}
 
-	err := r.init(host, port, lamportPort, raftDir)
+	err := r.init(host, raftPort, port, raftDir)
 	if err != nil {
 		return nil, err
 	}
@@ -62,14 +62,14 @@ func NewRaftNode(host, port, lamportPort, raftDir string) (*RaftNode, error) {
 	return r, nil
 }
 
-func (r *RaftNode) init(host, port, lamportPort, raftDir string) error {
+func (r *RaftNode) init(host, raftPort, port, raftDir string) error {
 	r.raftDir = raftDir
 	log.Printf("Setting raft directory to " + r.raftDir)
 
 	r.raftAddr = net.JoinHostPort(host, port)
 	log.Printf("Raft protocol listening on " + r.raftAddr)
 
-	r.lamportAddr = net.JoinHostPort(host, lamportPort)
+	r.lamportAddr = net.JoinHostPort(host, port)
 
 	config := raft.DefaultConfig()
 	config.EnableSingleNode = true

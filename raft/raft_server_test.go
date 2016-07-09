@@ -1,12 +1,10 @@
-package server_test
+package raft
 
 import (
 	"fmt"
 	"net"
 	"testing"
 	"time"
-
-	"github.com/Distributed-Computing-Denver/lamport/server"
 )
 
 func TestThreeServerCluster(t *testing.T) {
@@ -20,27 +18,27 @@ func TestThreeServerCluster(t *testing.T) {
 	raftDir := ".testRaftDir"
 
 	// Create 3 raft nodes
-	raftNode1, err := server.NewRaftNode(localhost, raftPort1, lamportPort1, raftDir+"1")
+	raftNode1, err := NewRaftNode(localhost, raftPort1, lamportPort1, raftDir+"1")
 	if err != nil {
 		t.Error(err)
 	}
 
-	raftNode2, err := server.NewRaftNode(localhost, raftPort2, lamportPort2, raftDir+"2")
+	raftNode2, err := NewRaftNode(localhost, raftPort2, lamportPort2, raftDir+"2")
 	if err != nil {
 		t.Error(err)
 	}
 
-	raftNode3, err := server.NewRaftNode(localhost, raftPort3, lamportPort3, raftDir+"3")
+	raftNode3, err := NewRaftNode(localhost, raftPort3, lamportPort3, raftDir+"3")
 	if err != nil {
 		t.Error(err)
 	}
 
 	// Spin up 2 servers and tell server 2 to join server 1 on startup
-	go server.RunRaftServer(localhost, lamportPort1, raftNode1, "")
+	go RunRaftServer(localhost, lamportPort1, raftPort1, raftDir, "")
 
 	time.Sleep(3 * time.Second)
 
-	go server.RunRaftServer(localhost, lamportPort2, raftNode2, net.JoinHostPort(localhost, lamportPort1))
+	go RunRaftServer(localhost, lamportPort2, raftPort2, raftDir, net.JoinHostPort(localhost, lamportPort1))
 
 	// Wait for nodes to communicate
 	time.Sleep(3 * time.Second)
@@ -53,7 +51,7 @@ func TestThreeServerCluster(t *testing.T) {
 	}
 
 	// Create a third server
-	go server.RunRaftServer(localhost, lamportPort3, raftNode3, "")
+	go RunRaftServer(localhost, lamportPort3, raftPort3, raftDir, "")
 
 	time.Sleep(3 * time.Second)
 

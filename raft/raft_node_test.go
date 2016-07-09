@@ -1,12 +1,10 @@
-package server_test
+package raft
 
 import (
 	"os"
 	"strconv"
 	"testing"
 	"time"
-
-	"github.com/Distributed-Computing-Denver/lamport/server"
 )
 
 const (
@@ -17,7 +15,7 @@ const (
 
 // Create a single node and verify that it becomes leader
 func TestSingleNodeCluster(t *testing.T) {
-	raftNode, err := server.NewRaftNode(localhost, port, port, raftDir)
+	raftNode, err := NewRaftNode(localhost, port, port, raftDir)
 	if err != nil {
 		t.Error(err)
 	}
@@ -46,12 +44,12 @@ func TestThreeNodeCluster(t *testing.T) {
 		t.Error(err)
 	}
 
-	raftNode1, err := server.NewRaftNode(localhost, strconv.Itoa(portNum+1), port, raftDir+"1")
+	raftNode1, err := NewRaftNode(localhost, strconv.Itoa(portNum+1), port, raftDir+"1")
 	if err != nil {
 		t.Error(err)
 	}
 
-	raftNode2, err := server.NewRaftNode(localhost, strconv.Itoa(portNum+2), port, raftDir+"2")
+	raftNode2, err := NewRaftNode(localhost, strconv.Itoa(portNum+2), port, raftDir+"2")
 	if err != nil {
 		t.Error(err)
 	}
@@ -76,7 +74,7 @@ func TestThreeNodeCluster(t *testing.T) {
 	// wait for a leader
 	time.Sleep(3 * time.Second)
 
-	raftNode3, err := server.NewRaftNode(localhost, strconv.Itoa(portNum+3), port, raftDir+"3")
+	raftNode3, err := NewRaftNode(localhost, strconv.Itoa(portNum+3), port, raftDir+"3")
 	if err != nil {
 		t.Error(err)
 	}
@@ -128,7 +126,7 @@ func deleteDir(dir string, t *testing.T) {
 	}
 }
 
-func shutdownRaftNode(r *server.RaftNode, t *testing.T) {
+func shutdownRaftNode(r *RaftNode, t *testing.T) {
 	t.Logf("Shutting down raft node %v", r.raftAddr)
 
 	err := r.Shutdown()
