@@ -1,5 +1,4 @@
-// Package server provides methods for running lamport
-package server
+package raft
 
 import (
 	"bufio"
@@ -27,13 +26,17 @@ func init() {
 
 // RunRaftServer starts lamport on the given ip and hostname using raft
 // for leader election
-func RunRaftServer(host string, port string, r Raft, joinServer string) {
+func RunRaftServer(host string, port string, raftPort string, raftDir string, bootstrap string) {
 	log.Print("Initializing lamport...")
+	r, err := NewRaftNode(host, raftPort, port, raftDir)
+	if err != nil {
+		panic(fmt.Errorf("Error creating raft node: %s", err))
+	}
 	connCh := make(chan net.Conn)
 	go listen(host, port, connCh)
 
-	if joinServer != "" {
-		writeJoinMessage(r.RaftAddr(), joinServer)
+	if bootstrap != "" {
+		writeJoinMessage(r.RaftAddr(), bootstrap)
 	}
 
 	for {

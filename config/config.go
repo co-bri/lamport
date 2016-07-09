@@ -4,16 +4,21 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// Config holds configuration options for lamport
+// Config stores configuration options for Lamport
 type Config struct {
-	Host, LamportPort, ElectionLibrary, RaftDir, RaftPort string
+	Host      string
+	Port      string
+	Bootstrap string
+	Zookeeper []string
+	RaftDir   string
+	RaftPort  string
 }
 
-// ReadConfig reads configuration options out of a .toml file
-func ReadConfig(tomlFilename string) (Config, error) {
+// ReadConfig returns a Config created from the supplied config file
+func ReadConfig(configFile string) (Config, error) {
 	var config Config
 
-	if _, err := toml.DecodeFile(tomlFilename, &config); err != nil {
+	if _, err := toml.DecodeFile(configFile, &config); err != nil {
 		return config, err
 	}
 	return config, nil
