@@ -24,13 +24,13 @@ func init() {
 
 // WatchLeader uses zookeeper to elect a leader, and returns
 // a channel that recieves leader change events
-func WatchLeader(ip string, port string, zkh []string, sigCh <-chan bool) chan bool {
+func LeaderWatch(ip string, port string, zkh []string, sigCh chan bool) chan bool {
 	ch := make(chan bool)
-	go watchLeader(ip, port, zkh, ch, sigCh)
+	go leaderWatch(ip, port, zkh, ch, sigCh)
 	return ch
 }
 
-func watchLeader(ip string, port string, zkh []string, ch chan bool, sigCh <-chan bool) {
+func leaderWatch(ip string, port string, zkh []string, ch chan bool, sigCh chan bool) {
 	zkConn, sCh, err := zk.Connect(zkh, time.Second)
 	if err != nil {
 		log.Fatalf("Error connecting to zookeeper: %s", err)
@@ -64,6 +64,7 @@ func watchLeader(ip string, port string, zkh []string, ch chan bool, sigCh <-cha
 			}
 		case sig := <-sigCh:
 			if sig {
+				sigCh <- true
 				return
 			}
 		}

@@ -8,7 +8,7 @@ import (
 )
 
 // Run starts a Lamport node using the supplied configuration
-func Run(config config.Config, sigCh <-chan bool) {
+func Run(config config.Config, sigCh chan bool) {
 	ch := make(chan bool)
 	ldrCh := electLeader(config, ch)
 
@@ -21,12 +21,13 @@ func Run(config config.Config, sigCh <-chan bool) {
 		case q := <-sigCh:
 			if q {
 				ch <- true
+				<-ch
 				return
 			}
 		}
 	}
 }
 
-func electLeader(config config.Config, sigCh <-chan bool) chan bool {
-	return zk.WatchLeader(config.Host, config.Port, config.Zookeeper, sigCh)
+func electLeader(config config.Config, sigCh chan bool) chan bool {
+	return zk.LeaderWatch(config.Host, config.Port, config.Zookeeper, sigCh)
 }
