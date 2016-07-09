@@ -1,5 +1,5 @@
 Bootstrap = "127.0.0.1:5936"
-Zookeeper = "127.0.0.1:2190"
+Zookeeper = ["127.0.0.1"]
 Host = "127.0.0.1"
 Port = "5936"
 RaftDir = ".raft"

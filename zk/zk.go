@@ -36,7 +36,9 @@ func leaderWatch(ip string, port string, zkh []string, ch chan bool, sigCh chan 
 		log.Fatalf("Error connecting to zookeeper: %s", err)
 	}
 	defer func() {
-		zkConn.Close()
+		if s := zkConn.State(); s == zk.StateConnected {
+			zkConn.Close()
+		}
 	}()
 
 	// setup required znodes, set watch on candidate node
@@ -64,6 +66,7 @@ func leaderWatch(ip string, port string, zkh []string, ch chan bool, sigCh chan 
 			}
 		case sig := <-sigCh:
 			if sig {
+				zkConn.Close()
 				sigCh <- true
 				return
 			}

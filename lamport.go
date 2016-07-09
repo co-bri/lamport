@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
 
 	"github.com/Distributed-Computing-Denver/lamport/config"
-	"github.com/Distributed-Computing-Denver/lamport/server"
+	"github.com/Distributed-Computing-Denver/lamport/node"
 )
 
 func main() {
@@ -17,5 +19,13 @@ func main() {
 		panic(fmt.Errorf("Error reading config file: %s", err))
 	}
 
-	server.Run(config, make(chan bool))
+	sigCh := make(chan bool)
+	go node.Run(config, sigCh)
+
+	// handle SIGINT, notify node, wait for confirm to exit
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	<-c
+	sigCh <- true
+	<-sigCh
 }

@@ -1,4 +1,4 @@
-package server
+package node
 
 import (
 	"log"
@@ -16,12 +16,13 @@ func Run(config config.Config, sigCh chan bool) {
 		select {
 		case ldr := <-ldrCh:
 			if ldr {
-				log.Print("Node entering leader mode")
+				log.Print("Entering leader mode")
 			}
 		case q := <-sigCh:
 			if q {
 				ch <- true
 				<-ch
+				sigCh <- true
 				return
 			}
 		}

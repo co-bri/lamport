@@ -26,7 +26,7 @@ func TestWatchLeaderSingle(t *testing.T) {
 	}()
 
 	sigCh := make(chan bool)
-	WatchLeader("127.0.0.1", "5936", []string{"127.0.0.1"}, sigCh)
+	LeaderWatch("127.0.0.1", "5936", []string{"127.0.0.1"}, sigCh)
 	time.Sleep(10 * time.Second)
 
 	nds, _, _, err := conn.ChildrenW(zkNodes)
@@ -39,7 +39,7 @@ func TestWatchLeaderSingle(t *testing.T) {
 	}
 
 	sigCh <- true
-	time.Sleep(5 * time.Second)
+	<-sigCh
 
 	nds, _, _, err = conn.ChildrenW(zkNodes)
 	if err != nil {
