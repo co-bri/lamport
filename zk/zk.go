@@ -47,6 +47,10 @@ func leaderWatch(ip string, port string, zkh []string, ch chan bool, sigCh chan 
 	nodeID := strings.Split(zn, "/")[3]
 	wCh, ldr := watchNode(zkConn, nodeID)
 
+	if ldr {
+		log.Print("No leader, entering leader mode")
+	}
+
 	for {
 		select {
 		// for zk session changes
@@ -106,7 +110,6 @@ func watchNode(conn *zk.Conn, nodeID string) (<-chan zk.Event, bool) {
 	}
 
 	// leader, return child watch channel
-	log.Printf("Entering leader mode")
 	return ch, true
 }
 
