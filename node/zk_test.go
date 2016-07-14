@@ -1,4 +1,4 @@
-package zk
+package node
 
 import (
 	"os"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Distributed-Computing-Denver/lamport/config"
 	"github.com/samuel/go-zookeeper/zk"
 )
 
@@ -16,20 +17,20 @@ const (
 )
 
 func TestWatchLeaderSingle(t *testing.T) {
-	conn, zkExec, err := startZk()
+	zkExec, err := startZk()
 	if err != nil {
 		t.Fatalf("Error starting zookeeper %s", err)
 	}
+	z := newZkLdrWatch(getConf())
 	defer func() {
-		conn.Close()
+		z.conn.Close()
 		stopZk(zkExec)
 	}()
-
 	sigCh := make(chan bool)
-	LeaderWatch("127.0.0.1", "5936", []string{"127.0.0.1"}, sigCh)
+	z.leaderWatch(sigCh)
 	time.Sleep(10 * time.Second)
 
-	nds, _, _, err := conn.ChildrenW(zkNodes)
+	nds, _, _, err := z.conn.ChildrenW(zkNodes)
 	if err != nil {
 		t.Fatalf("Error verifying candidate znode: %s", err)
 	}
@@ -41,7 +42,9 @@ func TestWatchLeaderSingle(t *testing.T) {
 	sigCh <- true
 	<-sigCh
 
-	nds, _, _, err = conn.ChildrenW(zkNodes)
+	z = newZkLdrWatch(getConf())
+	nds, _, _, err = z.conn.ChildrenW(zkNodes)
+	t.Log(nds)
 	if err != nil {
 		t.Fatalf("Error verifying candidate znode: %s", err)
 	}
@@ -52,24 +55,25 @@ func TestWatchLeaderSingle(t *testing.T) {
 }
 
 func TestWatchCandidateNode(t *testing.T) {
-	conn, zkExec, err := startZk()
+	zkExec, err := startZk()
 	if err != nil {
 		t.Fatalf("Error starting zookeeper %s", err)
 	}
+	z := newZkLdrWatch(getConf())
 	defer func() {
-		conn.Close()
+		z.conn.Close()
 		stopZk(zkExec)
 	}()
-	createParentZNodes(conn)                    // Need to make sure lamport zk nodes are present
-	pth := createZNode(conn, "0.0.0.0", "1234") // Need to create candidate node
-	ch, ldr := watchNode(conn, pth)
+	z.createParentZNodes() // Need to make sure lamport zk nodes are present
+	pth := z.createZNode() // Need to create candidate node
+	ch, ldr := z.watchNode(pth)
 
 	if !ldr {
 		t.Fatal("Expected single node to be leader")
 	}
 
 	// delete the candidate node to generate an event on the channel
-	if err := conn.Delete(pth, 0); err != nil {
+	if err := z.conn.Delete(pth, 0); err != nil {
 		t.Fatalf("Error deleting %s: %s", pth, err)
 	}
 	// receive the delete event
@@ -80,71 +84,77 @@ func TestWatchCandidateNode(t *testing.T) {
 	if e.Path != zkNodes {
 		t.Fatalf("Expected a Path of %s, but found %s", zkNodes, e.Path)
 	}
-	if err := cleanZk(conn); err != nil {
+	if err := cleanZk(z.conn); err != nil {
 		t.Fatalf("Error cleaning up zk nodes %s", err)
 	}
 }
 
 func TestCreateCandidateZNode(t *testing.T) {
-	conn, zkExec, err := startZk()
+	zkExec, err := startZk()
 	if err != nil {
 		t.Fatalf("Error starting zookeeper %s", err)
 	}
+	z := newZkLdrWatch(getConf())
 	defer func() {
-		conn.Close()
+		z.conn.Close()
 		stopZk(zkExec)
 	}()
-	createParentZNodes(conn) // Need to make sure lamport zk nodes are present
-	pth := createZNode(conn, "0.0.0.0", "1234")
-	if exists, _, err := conn.Exists(pth); err != nil || !exists {
+	z.createParentZNodes() // Need to make sure lamport zk nodes are present
+	pth := z.createZNode()
+	if exists, _, err := z.conn.Exists(pth); err != nil || !exists {
 		t.Fatalf("Failed to create candidate node %s", pth)
 	}
-	if err := conn.Delete(pth, 0); err != nil {
+	if err := z.conn.Delete(pth, 0); err != nil {
 		t.Fatalf("Error deleting zk root node %s: %s", pth, err)
 	}
-	if err := cleanZk(conn); err != nil {
+	if err := cleanZk(z.conn); err != nil {
 		t.Fatalf("Error cleaning up zk nodes %s", err)
 	}
 }
 
 func TestCreateParentZNodes(t *testing.T) {
-	conn, zkExec, err := startZk()
+	zkExec, err := startZk()
 	if err != nil {
 		t.Fatalf("Error starting zookeeper %s", err)
 	}
+	z := newZkLdrWatch(getConf())
 	defer func() {
-		conn.Close()
+		z.conn.Close()
 		stopZk(zkExec)
 	}()
-	createParentZNodes(conn)
-	if exists, _, err := conn.Exists(zkRoot); err != nil || !exists {
+	z.createParentZNodes()
+	if exists, _, err := z.conn.Exists(zkRoot); err != nil || !exists {
 		t.Fatalf("Failed to create zk root node %s: %s", zkRoot, err)
 	}
 
-	if exists, _, err := conn.Exists(zkNodes); err != nil || !exists {
+	if exists, _, err := z.conn.Exists(zkNodes); err != nil || !exists {
 		t.Fatalf("Failed to create zk leader election node %s: %s", zkNodes, err)
 	}
 
-	if err := cleanZk(conn); err != nil {
+	if err := cleanZk(z.conn); err != nil {
 		t.Fatalf("Error cleaning up zk nodes %s", err)
 	}
 }
 
-func startZk() (*zk.Conn, string, error) {
+func getConf() config.Config {
+	return config.Config{Host: "127.0.0.1", Port: "5936", Zookeeper: []string{"127.0.0.1"}}
+}
+
+func startZk() (string, error) {
 	zkExec := zkSrvr
 	if _, err := exec.LookPath(zkExec); err != nil {
 		// also check for zkServer.sh
 		zkExec = zkSrvr + ".sh"
 		if _, err := exec.LookPath(zkExec); err != nil {
-			return nil, zkExec, err
+			return zkExec, err
 		}
 	}
 	cmd := exec.Command(zkExec, zkStrt)
 	if err := cmd.Start(); err != nil {
-		return nil, zkExec, err
+		return zkExec, err
 	}
 	if err := cmd.Wait(); err != nil {
-		return nil, zkExec, err
+		return zkExec, err
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -152,15 +162,10 @@ func startZk() (*zk.Conn, string, error) {
 		}
 	}()
 
-	// this sucks, but the zk library is not friendly to timeouts
+	// this sucks, would rather use channels to coordinate
 	time.Sleep(25 * time.Second)
 
-	conn, _, err := zk.Connect([]string{"127.0.0.1"}, time.Second)
-	if err != nil {
-		return nil, zkExec, err
-	}
-
-	return conn, zkExec, nil
+	return zkExec, nil
 }
 
 func cleanZk(conn *zk.Conn) error {

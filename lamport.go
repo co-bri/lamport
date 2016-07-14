@@ -1,31 +1,43 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
-	"os/signal"
 
 	"github.com/Distributed-Computing-Denver/lamport/config"
 	"github.com/Distributed-Computing-Denver/lamport/node"
+	"github.com/urfave/cli"
 )
 
 func main() {
-	configFile := flag.String("configFile", "lamport.toml", "Lamport config file")
-	flag.Parse()
+	app := cli.NewApp()
+	app.Name = "lamport"
+	app.Usage = "An academic exercise in distributed systems"
+	app.Version = "0.0.1"
 
-	config, err := config.ReadConfig(*configFile)
-	if err != nil {
-		panic(fmt.Errorf("Error reading config file: %s", err))
+	app.Commands = []cli.Command{
+		{
+			Name:    "run",
+			Aliases: []string{"r"},
+			Usage:   "run lamport",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "config, c",
+					Value: "lamport.toml",
+					Usage: "lamport configuration `FILE`",
+				},
+			},
+			Action: func(c *cli.Context) error {
+				cf := c.String("config")
+				config, err := config.ReadConfig(cf)
+				if err != nil {
+					panic(fmt.Errorf("Error reading config file: %s", err))
+				}
+				node.Start(node.LamportRunner(config))
+				return nil
+			},
+		},
 	}
 
-	sigCh := make(chan bool)
-	go node.Run(config, sigCh)
-
-	// handle SIGINT, notify node, wait for confirm to exit
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	<-c
-	sigCh <- true
-	<-sigCh
+	app.Run(os.Args)
 }

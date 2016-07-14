@@ -1,4 +1,4 @@
-package zk
+package node
 
 import (
 	"log"
@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Distributed-Computing-Denver/lamport/config"
 	"github.com/samuel/go-zookeeper/zk"
 )
 
@@ -22,30 +23,37 @@ func init() {
 	log.SetOutput(os.Stdout)
 }
 
-// WatchLeader uses zookeeper to elect a leader, and returns
-// a channel that recieves leader change events
-func LeaderWatch(ip string, port string, zkh []string, sigCh chan bool) chan bool {
-	ch := make(chan bool)
-	go leaderWatch(ip, port, zkh, ch, sigCh)
-	return ch
+type zkLdrWatch struct {
+	conf config.Config
+	conn *zk.Conn
+	ch   <-chan zk.Event
 }
 
-func leaderWatch(ip string, port string, zkh []string, ch chan bool, sigCh chan bool) {
-	zkConn, sCh, err := zk.Connect(zkh, time.Second)
+func newZkLdrWatch(conf config.Config) zkLdrWatch {
+	zkConn, sCh, err := zk.Connect(conf.Zookeeper, 250*time.Millisecond)
 	if err != nil {
 		log.Fatalf("Error connecting to zookeeper: %s", err)
 	}
-	defer func() {
-		if s := zkConn.State(); s == zk.StateConnected {
-			zkConn.Close()
-		}
-	}()
+	z := zkLdrWatch{
+		conf: conf,
+		conn: zkConn,
+		ch:   sCh,
+	}
+	return z
+}
 
+func (z zkLdrWatch) leaderWatch(sigCh chan bool) chan bool {
+	ch := make(chan bool)
+	go z.strtLeaderWatch(ch, sigCh)
+	return ch
+}
+
+func (z zkLdrWatch) strtLeaderWatch(ch chan bool, sigCh chan bool) {
 	// setup required znodes, set watch on candidate node
-	createParentZNodes(zkConn)
-	zn := createZNode(zkConn, ip, port)
+	z.createParentZNodes()
+	zn := z.createZNode()
 	nodeID := strings.Split(zn, "/")[3]
-	wCh, ldr := watchNode(zkConn, nodeID)
+	wCh, ldr := z.watchNode(nodeID)
 
 	if ldr {
 		log.Print("No leader, entering leader mode")
@@ -54,7 +62,7 @@ func leaderWatch(ip string, port string, zkh []string, ch chan bool, sigCh chan 
 	for {
 		select {
 		// for zk session changes
-		case se := <-sCh:
+		case se := <-z.ch:
 			if se.State == zk.StateUnknown || se.State == zk.StateDisconnected {
 				log.Printf("Zookeeper %s, state: %s, server: %s ", se.Type, se.State, se.Server)
 			}
@@ -62,7 +70,7 @@ func leaderWatch(ip string, port string, zkh []string, ch chan bool, sigCh chan 
 		case we := <-wCh:
 			if we.Type == zk.EventNodeDeleted {
 				log.Printf("Watched node deleted, resetting watch")
-				if wCh, ldr = watchNode(zkConn, nodeID); ldr {
+				if wCh, ldr = z.watchNode(nodeID); ldr {
 					ch <- true
 				} else {
 					ch <- false
@@ -70,7 +78,7 @@ func leaderWatch(ip string, port string, zkh []string, ch chan bool, sigCh chan 
 			}
 		case sig := <-sigCh:
 			if sig {
-				zkConn.Close()
+				z.closeConn()
 				sigCh <- true
 				return
 			}
@@ -79,10 +87,10 @@ func leaderWatch(ip string, port string, zkh []string, ch chan bool, sigCh chan 
 }
 
 // sets a watch on the candidate node having seq number prior to supplied node id
-func watchNode(conn *zk.Conn, nodeID string) (<-chan zk.Event, bool) {
+func (z zkLdrWatch) watchNode(nodeID string) (<-chan zk.Event, bool) {
 	wchID := nodeID
 
-	nds, _, ch, err := conn.ChildrenW(zkNodes)
+	nds, _, ch, err := z.conn.ChildrenW(zkNodes)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -101,7 +109,7 @@ func watchNode(conn *zk.Conn, nodeID string) (<-chan zk.Event, bool) {
 
 	// not leader, set watch for potential leader changes
 	if wchID != nodeID {
-		data, _, ch, err := conn.GetW(zkNodes + "/" + wchID)
+		data, _, ch, err := z.conn.GetW(zkNodes + "/" + wchID)
 		if err != nil {
 			log.Fatalf("Error setting watch on candidate node: %s, %s", wchID, data)
 		}
@@ -114,9 +122,9 @@ func watchNode(conn *zk.Conn, nodeID string) (<-chan zk.Event, bool) {
 }
 
 // creates a candidate znode for this lamport instance
-func createZNode(conn *zk.Conn, host string, port string) (path string) {
-	data := []uint8(host + ":" + port)
-	path, err := conn.Create(zkNodes+"/"+zkPrfx, data, zk.FlagEphemeral|zk.FlagSequence, acl)
+func (z zkLdrWatch) createZNode() (path string) {
+	data := []uint8(z.conf.Host + ":" + z.conf.Port)
+	path, err := z.conn.Create(zkNodes+"/"+zkPrfx, data, zk.FlagEphemeral|zk.FlagSequence, acl)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -125,28 +133,38 @@ func createZNode(conn *zk.Conn, host string, port string) (path string) {
 }
 
 // creates the required parent znodes if not present
-func createParentZNodes(conn *zk.Conn) {
-	exists, _, err := conn.Exists(zkRoot)
+func (z zkLdrWatch) createParentZNodes() {
+	exists, _, err := z.conn.Exists(zkRoot)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	if !exists {
 		log.Printf("Root znode not found, creating %s in zookeeper", zkRoot)
-		if _, err := conn.Create(zkRoot, nil, 0, acl); err != nil {
+		if _, err := z.conn.Create(zkRoot, nil, 0, acl); err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	exists, _, err = conn.Exists(zkNodes)
+	exists, _, err = z.conn.Exists(zkNodes)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	if !exists {
 		log.Printf("Leader election parent node not found, Creating %s in zookeeper", zkNodes)
-		if _, err := conn.Create(zkNodes, nil, 0, acl); err != nil {
+		if _, err := z.conn.Create(zkNodes, nil, 0, acl); err != nil {
 			log.Fatal(err)
 		}
+	}
+}
+
+func (z zkLdrWatch) closeConn() {
+	if z.conn == nil {
+		return
+	}
+
+	if s := z.conn.State(); s == zk.StateHasSession || s == zk.StateConnected {
+		z.conn.Close()
 	}
 }
