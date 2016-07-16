@@ -9,22 +9,38 @@ import (
 	"github.com/urfave/cli"
 )
 
+const (
+	name       = "lamport"
+	usage      = "An academic exercise in distributed systems"
+	version    = "0.0.1"
+	rName      = "run"
+	rUsage     = "run lamport"
+	rFlagName  = "config, c"
+	rFlagValue = "lamport.toml"
+	rFlagUsage = "lamport configuration `FILE`"
+)
+
 func main() {
+	app := getApp()
+	app.Run(os.Args)
+}
+
+func getApp() *cli.App {
 	app := cli.NewApp()
-	app.Name = "lamport"
-	app.Usage = "An academic exercise in distributed systems"
-	app.Version = "0.0.1"
+	app.Name = name
+	app.Usage = usage
+	app.Version = version
 
 	app.Commands = []cli.Command{
 		{
-			Name:    "run",
+			Name:    rName,
 			Aliases: []string{"r"},
-			Usage:   "run lamport",
+			Usage:   rUsage,
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:  "config, c",
-					Value: "lamport.toml",
-					Usage: "lamport configuration `FILE`",
+					Name:  rFlagName,
+					Value: rFlagValue,
+					Usage: rFlagUsage,
 				},
 			},
 			Action: func(c *cli.Context) error {
@@ -38,6 +54,5 @@ func main() {
 			},
 		},
 	}
-
-	app.Run(os.Args)
+	return app
 }

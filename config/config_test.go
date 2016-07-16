@@ -39,3 +39,10 @@ func TestReadConfig(t *testing.T) {
 		t.Fatalf("Expected 8500 for 'Bootstrap', found %s", c.RaftPort)
 	}
 }
+
+func TestReadConfigError(t *testing.T) {
+	c, err := ReadConfig("foo.toml")
+	if err == nil {
+		t.Fatal("Expected error when reading non-existent config")
+	}
+}
