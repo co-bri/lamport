@@ -1,4 +1,4 @@
-package raft
+package node
 
 import (
 	"bufio"
@@ -7,11 +7,13 @@ import (
 	"net"
 	"os"
 	"strings"
+
+	"github.com/Distributed-Computing-Denver/lamport/config"
 )
 
 // Raft is an interface that contains operations that should
 // be implemented by a raft node
-type Raft interface {
+type rafter interface {
 	Join(addr string) error
 	LamportAddr() string
 	Leader() string
@@ -24,38 +26,49 @@ func init() {
 	log.SetOutput(os.Stdout)
 }
 
-// RunRaftServer starts lamport on the given ip and hostname using raft
-// for leader election
-func RunRaftServer(host string, port string, raftPort string, raftDir string, bootstrap string) {
-	log.Print("Initializing lamport...")
-	r, err := NewRaftNode(host, raftPort, port, raftDir)
+type raftLdrWatch struct {
+	conf config.Config
+}
+
+func newRaftLdrWatch(conf config.Config) raftLdrWatch {
+	return raftLdrWatch{conf: conf}
+}
+
+func (r raftLdrWatch) leaderWatch(sigCh chan bool) chan bool {
+	ch := make(chan bool)
+	go r.startLeaderWatch(ch, sigCh)
+	return ch
+}
+
+func (r raftLdrWatch) startLeaderWatch(ch chan bool, sigCh chan bool) {
+	rn, err := NewRaftNode(r.conf.Host, r.conf.RaftPort, r.conf.Port, r.conf.RaftDir)
 	if err != nil {
 		panic(fmt.Errorf("Error creating raft node: %s", err))
 	}
 	connCh := make(chan net.Conn)
-	go listen(host, port, connCh)
+	go r.listen(connCh)
 
-	if bootstrap != "" {
-		writeJoinMessage(r.RaftAddr(), bootstrap)
+	if r.conf.Bootstrap != "" {
+		r.writeJoinMessage(rn.RaftAddr(), r.conf.Bootstrap)
 	}
 
 	for {
 		select {
 		case c := <-connCh:
 			log.Printf("Incoming connection from: %s", c.RemoteAddr())
-			handleJoinMessage(c, r)
+			r.handleJoinMessage(c, rn)
 		}
 	}
 }
 
 // listen on ports for connections
-func listen(host string, port string, ch chan net.Conn) {
-	ln, err := net.Listen("tcp", host+":"+port)
+func (r raftLdrWatch) listen(ch chan net.Conn) {
+	ln, err := net.Listen("tcp", r.conf.Host+":"+r.conf.Port)
 	defer ln.Close()
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("Lamport listening on " + host + ":" + port)
+	log.Printf("Lamport listening on " + r.conf.Host + ":" + r.conf.Port)
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -67,17 +80,17 @@ func listen(host string, port string, ch chan net.Conn) {
 
 // Given a join message, either add the raft node address in the message to
 // the cluster, or forward the message on to the leader of the cluster.
-func handleJoinMessage(conn net.Conn, r Raft) {
+func (r raftLdrWatch) handleJoinMessage(conn net.Conn, rn rafter) {
 	msg, err := bufio.NewReader(conn).ReadString('\n')
 	if err != nil {
 		log.Printf("Error reading message: %s", err)
 	}
 	node := strings.TrimSpace(msg)
-	if r.State() == "Leader" {
-		r.Join(node)
+	if rn.State() == "Leader" {
+		rn.Join(node)
 	} else {
-		if r.LeaderAddr() != r.LamportAddr() {
-			writeJoinMessage(msg, r.LeaderAddr())
+		if rn.LeaderAddr() != rn.LamportAddr() {
+			r.writeJoinMessage(msg, rn.LeaderAddr())
 		} else {
 			log.Printf("Can't add %s to the cluster as this Raft node doesn't know the correct leader address", node)
 		}
@@ -87,7 +100,7 @@ func handleJoinMessage(conn net.Conn, r Raft) {
 
 // Write a join message to a given server. The join message consists
 // of the raft host name and port commnunicated over a tcp socket.
-func writeJoinMessage(message, server string) {
+func (r raftLdrWatch) writeJoinMessage(message, server string) {
 	conn, err := net.Dial("tcp", server)
 	if err != nil {
 		log.Printf("Error connecting to %s: %s", server, err)
