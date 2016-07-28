@@ -38,7 +38,7 @@ func getApp() *cli.App {
 				if err != nil {
 					panic(fmt.Errorf("Error reading config file: %s", err))
 				}
-				node.Start(node.LamportRunner(config))
+				node.Start(node.New(config))
 				return nil
 			},
 		},
