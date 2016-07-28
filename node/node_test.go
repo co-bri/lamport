@@ -8,13 +8,20 @@ import (
 	"github.com/Distributed-Computing-Denver/lamport/config"
 )
 
+type testnode struct {
+	ch chan bool
+}
+
+func (tn testnode) Run(sigCh chan bool) {
+	<-sigCh
+	sigCh <- true
+	tn.ch <- true
+}
+
 func TestStart(t *testing.T) {
 	ch := make(chan bool)
-	rnr := func(sigCh chan bool) {
-		<-sigCh
-		ch <- true
-	}
-	go Start(rnr)
+	tn := testnode{ch: ch}
+	go Start(tn)
 	time.Sleep(1 * time.Second)
 	p, err := os.FindProcess(os.Getpid())
 	if err != nil {
@@ -25,38 +32,25 @@ func TestStart(t *testing.T) {
 }
 
 func TestNewNode(t *testing.T) {
+	h, p := "127.0.0.1", "5936"
+
 	c := config.Config{
-		Zookeeper: []string{"127.0.0.1"},
+		Host: h,
+		Port: p,
 	}
 
-	n := newNode(c)
-	if n.lw == nil {
-		t.Fatal("Expected node.lw to be non-nil")
+	r := New(c)
+	n, ok := r.(node)
+
+	if !ok {
+		t.Fatal("Unable to get `node` from `Runner`")
 	}
 
-	n = newNode(config.Config{})
-	if n.lw != nil {
-		t.Fatal("Expected node.lw to be nil")
+	if n.conf.Host != h {
+		t.Fatalf("Expected node 'Host' to be %s, but found %s", h, n.conf.Host)
 	}
-}
 
-type ldrWtch struct{}
-
-func (l ldrWtch) leaderWatch(ch chan bool) chan bool {
-	go func() {
-		<-ch
-		ch <- true
-	}()
-	return make(chan bool)
-}
-
-func TestRun(t *testing.T) {
-	ch := make(chan bool)
-	n := node{}
-	n.lw = ldrWtch{}
-
-	go n.run(ch)
-	time.Sleep(1 * time.Second)
-	ch <- true
-	<-ch
+	if n.conf.Port != p {
+		t.Fatalf("Expected node 'Port' to be %s, but found %s", p, n.conf.Port)
+	}
 }
