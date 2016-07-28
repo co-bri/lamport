@@ -6,12 +6,8 @@ import (
 
 // Config stores configuration options for Lamport
 type Config struct {
-	Host      string
-	Port      string
-	Bootstrap string
-	Zookeeper []string
-	RaftDir   string
-	RaftPort  string
+	Host string
+	Port string
 }
 
 // ReadConfig returns a Config created from the supplied config file
