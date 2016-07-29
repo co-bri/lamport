@@ -6,6 +6,17 @@ import (
 	"github.com/urfave/cli"
 )
 
+const (
+	name       = "lamport"
+	usage      = "An academic exercise in building a distributed system"
+	version    = "0.0.1"
+	rName      = "run"
+	rUsage     = "run a lamport node"
+	rFlagName  = "config, c"
+	rFlagValue = "lamport.toml"
+	rFlagUsage = "lamport configuration `FILE`"
+)
+
 func TestGetApp(t *testing.T) {
 	app := getApp()
 
@@ -22,7 +33,7 @@ func TestGetApp(t *testing.T) {
 	}
 
 	if len(app.Commands) != 1 {
-		t.Fatalf("Expected single subcommand for app but found %d", len(app.Commands))
+		t.Fatalf("Expected 1 subcommand for app but found %d", len(app.Commands))
 	}
 
 	cmd := app.Commands[0]
