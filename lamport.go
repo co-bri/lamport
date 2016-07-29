@@ -32,16 +32,23 @@ func getApp() *cli.App {
 					Usage: "lamport configuration `FILE`",
 				},
 			},
-			Action: func(c *cli.Context) error {
-				cf := c.String("config")
-				config, err := config.ReadConfig(cf)
-				if err != nil {
-					panic(fmt.Errorf("Error reading config file: %s", err))
-				}
-				node.Start(node.New(config))
-				return nil
-			},
+			Action: getAction(),
 		},
 	}
 	return app
+}
+
+func getAction() func(c *cli.Context) error {
+	return func(c *cli.Context) error {
+		if c == nil {
+			return fmt.Errorf("Invalid context supplied to 'Action'")
+		}
+		cf := c.String("config")
+		config, err := config.ReadConfig(cf)
+		if err != nil {
+			return fmt.Errorf("Error processing config file: %s", err)
+		}
+		node.Start(node.New(config))
+		return nil
+	}
 }

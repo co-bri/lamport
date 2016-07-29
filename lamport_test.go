@@ -63,4 +63,14 @@ func TestGetApp(t *testing.T) {
 	if strFlag.Usage != rFlagUsage {
 		t.Fatalf("Expected %s for subcommand %s flag usage, but found %s", rFlagUsage, cmd.Name, strFlag.Usage)
 	}
+
+	if app.Action == nil {
+		t.Fatalf("Expected an 'Action' for the app, but found nil")
+	}
+
+	a := getAction()
+	err := a(nil)
+	if err == nil {
+		t.Fatalf("Expected error when calling 'Action' with nil context")
+	}
 }
