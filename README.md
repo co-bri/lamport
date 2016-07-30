@@ -13,6 +13,12 @@ To get your local development environment setup, follow these steps:
 
 ## Running
 
+If you have the [Make](https://www.gnu.org/software/make/) utility installed, you can build a Lamport artifact by running:
+
+`make all`
+
+If not, run through the following steps.
+
 Once you've cloned the repository as outlined above, and made sure to [setup your workspace](https://golang.org/doc/code.html), navigate to the root folder of the project and run:
 
 `go build`
