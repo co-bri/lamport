@@ -3,10 +3,13 @@
 install:
 	go get -t -v ./...
 
-build: clean \
+all: clean \
 	lint \
 	vet \
 	test \
+	build
+
+build: 
 	go build
 
 clean:

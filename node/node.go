@@ -32,6 +32,8 @@ func Start(r Runner) {
 	<-sigCh
 }
 
+// New creates a Runner that can be used to
+// start a Lamport node
 func New(conf config.Config) Runner {
 	return node{conf: conf}
 }
