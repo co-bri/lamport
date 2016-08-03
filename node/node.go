@@ -18,7 +18,7 @@ type node struct {
 }
 
 // Start starts a new lamport node using the supplied
-// Creator and Config
+// Runner
 func Start(r Runner) {
 	sigCh := make(chan bool)
 	go r.Run(sigCh)
@@ -40,12 +40,10 @@ func New(conf config.Config) Runner {
 
 func (n node) Run(sigCh chan bool) {
 	for {
-		select {
-		case sig := <-sigCh:
-			if sig {
-				sigCh <- true
-				return
-			}
+		sig := <-sigCh
+		if sig {
+			sigCh <- true
+			return
 		}
 	}
 }
