@@ -11,15 +11,15 @@ To get your local development environment setup, follow these steps:
 3. Read through the ["How to Write Go Code"](https://golang.org/doc/code.html) to setup your GOPATH and workspace
 4. Clone this repository: `git clone https://github.com/Distributed-Computing-Denver/lamport.git`
 
-## Running
+## Building
+
+Once you've cloned the repository as outlined above, and made sure to [setup your workspace](https://golang.org/doc/code.html), Once you've setup Go on your local machine, you can build Lamport.
 
 If you have the [Make](https://www.gnu.org/software/make/) utility installed, you can build a Lamport artifact by running:
 
-`make all`
+`make all`.
 
-If not, run through the following steps.
-
-Once you've cloned the repository as outlined above, and made sure to [setup your workspace](https://golang.org/doc/code.html), navigate to the root folder of the project and run:
+If Make is not an option, you can navigate to the root of the cloned repo, and run:
 
 `go build`
 
