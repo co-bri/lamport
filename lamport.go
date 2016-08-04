@@ -40,15 +40,12 @@ func getApp() *cli.App {
 
 func getAction() func(c *cli.Context) error {
 	return func(c *cli.Context) error {
-		if c == nil {
-			return fmt.Errorf("Invalid context supplied to 'Action'")
-		}
 		cf := c.String("config")
+		fmt.Println(cf)
 		config, err := config.ReadConfig(cf)
 		if err != nil {
 			return fmt.Errorf("Error processing config file: %s", err)
 		}
-		node.Start(node.New(config))
-		return nil
+		return node.Start(node.New(config))
 	}
 }

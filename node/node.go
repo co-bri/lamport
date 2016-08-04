@@ -19,7 +19,7 @@ type node struct {
 
 // Start starts a new lamport node using the supplied
 // Runner
-func Start(r Runner) {
+func Start(r Runner) error {
 	sigCh := make(chan bool)
 	go r.Run(sigCh)
 
@@ -30,6 +30,8 @@ func Start(r Runner) {
 	log.Print("Received SIGINT, terminating lamport")
 	sigCh <- true
 	<-sigCh
+
+	return nil
 }
 
 // New creates a Runner that can be used to
