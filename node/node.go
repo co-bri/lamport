@@ -41,11 +41,9 @@ func New(conf config.Config) Runner {
 }
 
 func (n node) Run(sigCh chan bool) {
-	for {
-		sig := <-sigCh
-		if sig {
-			sigCh <- true
-			return
-		}
+	sig := <-sigCh
+	if sig {
+		sigCh <- true
+		return
 	}
 }

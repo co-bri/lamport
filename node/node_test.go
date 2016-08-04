@@ -8,6 +8,11 @@ import (
 	"github.com/Distributed-Computing-Denver/lamport/config"
 )
 
+const (
+	host = "127.0.0.1"
+	port = "5936"
+)
+
 type testnode struct {
 	ch chan bool
 }
@@ -31,14 +36,8 @@ func TestStart(t *testing.T) {
 	<-ch
 }
 
-func TestNewNode(t *testing.T) {
-	h, p := "127.0.0.1", "5936"
-
-	c := config.Config{
-		Host: h,
-		Port: p,
-	}
-
+func TestRun(t *testing.T) {
+	c := getConfig()
 	r := New(c)
 	n, ok := r.(node)
 
@@ -46,11 +45,24 @@ func TestNewNode(t *testing.T) {
 		t.Fatal("Unable to get `node` from `Runner`")
 	}
 
-	if n.conf.Host != h {
-		t.Fatalf("Expected node 'Host' to be %s, but found %s", h, n.conf.Host)
+	if n.conf.Host != host {
+		t.Fatalf("Expected node 'Host' to be %s, but found %s", host, n.conf.Host)
 	}
 
-	if n.conf.Port != p {
-		t.Fatalf("Expected node 'Port' to be %s, but found %s", p, n.conf.Port)
+	if n.conf.Port != port {
+		t.Fatalf("Expected node 'Port' to be %s, but found %s", port, n.conf.Port)
+	}
+
+	ch := make(chan bool)
+	go n.Run(ch)
+	time.Sleep(1 * time.Second)
+	ch <- true
+	<-ch
+}
+
+func getConfig() config.Config {
+	return config.Config{
+		Host: host,
+		Port: port,
 	}
 }
