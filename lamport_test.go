@@ -67,16 +67,11 @@ func TestGetApp(t *testing.T) {
 	if app.Action == nil {
 		t.Fatalf("Expected an 'Action' for the app, but found nil")
 	}
+}
 
-	app.Commands[0].Flags = []cli.Flag{
-		cli.StringFlag{
-			Name:  "config, c",
-			Value: "foo.toml",
-			Usage: "lamport configuration `FILE`",
-		},
-	}
-	err := app.Run([]string{"lamport", "run"})
+func TestAction(t *testing.T) {
+	err := action("foo.toml")
 	if err == nil {
-		t.Fatal("Expected error when supplyin invlaid config file name")
+		t.Fatal("Expected error when supplying bad config file name to 'action'")
 	}
 }

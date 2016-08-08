@@ -32,20 +32,19 @@ func getApp() *cli.App {
 					Usage: "lamport configuration `FILE`",
 				},
 			},
-			Action: getAction(),
+			Action: func(c *cli.Context) error {
+				cf := c.String("config")
+				return action(cf)
+			},
 		},
 	}
 	return app
 }
 
-func getAction() func(c *cli.Context) error {
-	return func(c *cli.Context) error {
-		cf := c.String("config")
-		fmt.Println(cf)
-		config, err := config.ReadConfig(cf)
-		if err != nil {
-			return fmt.Errorf("Error processing config file: %s", err)
-		}
-		return node.Start(node.New(config))
+func action(c string) error {
+	config, err := config.ReadConfig(c)
+	if err != nil {
+		return fmt.Errorf("Error processing config file: %s", err)
 	}
+	return node.Start(node.New(config))
 }
