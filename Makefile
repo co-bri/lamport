@@ -1,13 +1,18 @@
 .PHONY: build clean doc fmt lint test vet install bench
 
-install:
-	go get -t -v ./...
 
 all: clean \
+	get_pre_req \
 	lint \
 	vet \
 	test \
-	build
+	install
+
+get_pre_req:
+	go get -t -v ./...
+
+install:
+	go install
 
 build: 
 	go build
