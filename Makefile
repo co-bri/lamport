@@ -6,6 +6,7 @@ all: clean \
 	lint \
 	vet \
 	test \
+	build \ 
 	install
 
 get_pre_req:
