@@ -15,7 +15,7 @@ https://www.terraform.io/
 https://www.terraform.io/intro/getting-started/install.html
 
 Note that terraform will setup everything in the current directory.
-Keep only files for one setup in the directory 
+Keep only files for one setup in the directory, e.g. lamportaws.tf 
 Use "terraform plan" to see what it will set up
 
 ###Set up these env variables for logging
