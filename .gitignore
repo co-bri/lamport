@@ -2,3 +2,7 @@ lamport
 .*
 !/.gitignore
 zookeeper.out
+terraform-aws/*.tfvars
+terraform-aws/*.example
+terraform-aws/*log
+terraform-aws/*txt
